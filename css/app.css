@@ -781,3 +781,23 @@ body.mode-fahrt .hero-primary { font-size: 1.2rem; }
   .hero-alts { grid-template-columns: 1fr 1fr; }
   .list-section { top: 62px; }
 }
+
+/* Hinweis auf der Karte: ein Finger scrollt die Seite, zwei bewegen die Karte */
+.map-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 8, 16, .55);
+  color: var(--fg);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  padding: 0 30px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+
+.map-hint.is-visible { opacity: 1; }

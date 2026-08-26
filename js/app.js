@@ -617,7 +617,8 @@
       el.dataNote.textContent = state.chargers.length + " Schnellladeparks ab " +
         res.chargers.min_kw + " kW entlang der " + chosen.name + " (" +
         chosen.distance_km.toFixed(0) + " km) · Stand " + res.chargers.generated +
-        (res.fromCache ? " · offline aus dem Zwischenspeicher" : "");
+        (res.fromCache ? " · offline aus dem Zwischenspeicher" : "") +
+        " · App " + (self.APP_VERSION || "?");
 
       wire();
       renderTrip();

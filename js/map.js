@@ -8,6 +8,38 @@ window.MapView = (function () {
   var onSelect = function () {};
   var ready = false;         // Karte nutzbar? Ohne sie laeuft der Rest weiter.
 
+  /* Zwei Finger aktivieren das Kartenziehen, ein Finger laesst die Seite
+     scrollen. Beim ersten Ein-Finger-Versuch erscheint kurz der Hinweis. */
+  function cooperativeGestures() {
+    var container = map.getContainer();
+    var hint = document.createElement("div");
+    hint.className = "map-hint";
+    hint.textContent = "Karte mit zwei Fingern bewegen";
+    container.appendChild(hint);
+    var hintTimer = null;
+
+    container.addEventListener("touchstart", function (e) {
+      if (e.touches.length >= 2) {
+        map.dragging.enable();
+        hint.classList.remove("is-visible");
+      }
+    }, { passive: true });
+
+    container.addEventListener("touchmove", function (e) {
+      if (e.touches.length === 1 && !map.dragging.enabled()) {
+        hint.classList.add("is-visible");
+        clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () {
+          hint.classList.remove("is-visible");
+        }, 1400);
+      }
+    }, { passive: true });
+
+    container.addEventListener("touchend", function (e) {
+      if (e.touches.length < 2) { map.dragging.disable(); }
+    }, { passive: true });
+  }
+
   /* Liefert true, wenn die Karte steht. Schlaegt das fehl — kein Leaflet,
      kein WebGL, was auch immer — bleibt die App bedienbar: die Liste mit
      Umwegen und Zielen ist der Teil, der unterwegs zaehlt. */
@@ -15,9 +47,17 @@ window.MapView = (function () {
     onSelect = handlers.onSelect || onSelect;
     if (typeof L === "undefined") { return false; }
     try {
+      var touchGeraet = "ontouchstart" in window || navigator.maxTouchPoints > 0;
       map = L.map("map", {
         zoomControl: true,
         attributionControl: true,
+        // Kooperative Gesten: Auf Touch-Geraeten wuerde die Karte jedes
+        // Ein-Finger-Wischen schlucken — die halbe Seite waere eine
+        // Scroll-Falle. Deshalb: ein Finger scrollt die SEITE, zwei Finger
+        // bewegen die Karte. Am Desktop scrollt das Mausrad die Seite,
+        // gezoomt wird ueber die +/--Knoepfe oder Doppelklick.
+        dragging: !touchGeraet,
+        scrollWheelZoom: false,
         // Ohne Animationen. Drei Gründe: eine unterbrochene Zoom-Animation
         // lässt Leaflet jedes weitere setView verschlucken, die Karte hängt
         // dann fest; mit über hundert Markern kostet die Animation spürbar
@@ -27,6 +67,7 @@ window.MapView = (function () {
         fadeAnimation: false,
         markerZoomAnimation: false
       });
+      if (touchGeraet) { cooperativeGestures(); }
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
