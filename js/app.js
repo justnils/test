@@ -37,6 +37,8 @@
 
   var filters = Rank.presetFilters("alles");
   var speeds = [];
+  var SMOOTH = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "auto" : "smooth";
 
   // Welche POIs in der Kurzzeile zuerst stehen, haengt vom Preset ab.
   var POI_PRIO = {
@@ -503,7 +505,7 @@
     if (act === "show") {
       var c = findCharger(id);
       if (c) { state.activeId = id; MapView.focus(c.pos, 13); }
-      el.map.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.map.scrollIntoView({ behavior: SMOOTH, block: "start" });
       render();
       return;
     }
@@ -511,7 +513,7 @@
       state.activeId = id;
       render();
       var card = el.list.querySelector('[data-id="' + CSS.escape(id) + '"]');
-      if (card) { card.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      if (card) { card.scrollIntoView({ behavior: SMOOTH, block: "center" }); }
       return;
     }
     if (ev.target.closest("a")) { return; }   // Navi-Link ungestoert lassen
@@ -576,11 +578,11 @@
       });
     }, { passive: true });
     fab.addEventListener("click", function () {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: SMOOTH });
     });
     el.hero.addEventListener("click", function (ev) {
       if (ev.target.id === "hero-all") {
-        el.list.scrollIntoView({ behavior: "smooth", block: "start" });
+        el.list.scrollIntoView({ behavior: SMOOTH, block: "start" });
         return;
       }
       onCardClick(ev);
@@ -595,7 +597,7 @@
         state.activeId = id;
         render();
         var card = el.list.querySelector('[data-id="' + CSS.escape(id) + '"]');
-        if (card) { card.scrollIntoView({ behavior: "smooth", block: "center" }); }
+        if (card) { card.scrollIntoView({ behavior: SMOOTH, block: "center" }); }
       }
     });
     if (!mapOk) {

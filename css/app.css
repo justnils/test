@@ -743,3 +743,41 @@ body.mode-fahrt .foot { display: none; }
   cursor: pointer;
   box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
 }
+
+/* --------------------------------------------- HIG/Material-Feinschliff */
+
+/* Sichtbarer Fokus für Tastatur und Schalter-Bedienung — Ringe nur bei
+   :focus-visible, damit Touch keine Ringe hinterlässt. */
+:where(button, a, input, .chip, .seg-btn, .card) :focus { outline: none; }
+
+:where(button, a, input):focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Lesetext skaliert mit der Systemschriftgröße (rem statt px):
+   wer am Handy "größere Schrift" eingestellt hat, bekommt sie auch. */
+.card-title h3 { font-size: 1rem; }
+.card-sub { font-size: 0.85rem; }
+.hero-primary { font-size: 1.05rem; }
+.hero-head h3 { font-size: 1.15rem; }
+.btn { font-size: 0.9rem; }
+.poi { font-size: 0.78rem; }
+.chip { font-size: 0.83rem; }
+.trip-stats { font-size: 0.83rem; }
+
+body.mode-fahrt .card-sub { font-size: 0.98rem; }
+body.mode-fahrt .hero-primary { font-size: 1.2rem; }
+
+/* Bewegung nur für die, die sie wollen */
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; }
+}
+
+/* Breite Bildschirme: Hero und Filterzeile laufen mit der Liste mit */
+@media (min-width: 820px) {
+  .hero, .preset-row, .mode-row { padding-left: max(12px, calc(50vw - 550px)); padding-right: max(12px, calc(50vw - 550px)); }
+  .hero-alts { grid-template-columns: 1fr 1fr; }
+  .list-section { top: 62px; }
+}
