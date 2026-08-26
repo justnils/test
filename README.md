@@ -91,16 +91,10 @@ serviert die Dateien direkt. Warum die vier Regeln so aussehen:
 gegen ein Schema und lehnt jede unbekannte Property ab, `"//"` eingeschlossen.
 Deshalb steht die Begründung hier statt in der Datei.
 
-Achtung bei der Produktions-URL: Vercel bedient sie aus dem **Production
-Branch** des Projekts, und der steht auf dem GitHub-Standard-Branch
-`claude/hallo-welt-website-app-5vflji` — dort liegt noch die alte Demo-Seite.
-Der Ladeplaner läuft deshalb vorerst unter seiner Branch-URL. Damit er die
-Produktions-URL bekommt, muss einer von beiden Schaltern umgelegt werden:
-
-- GitHub → Repo → Settings → Branches → Default branch auf
-  `claude/ev-charging-route-planner-zy6k38`, oder
-- Vercel → Projekt `ladeplaner` → Settings → Git → Production Branch auf
-  denselben Branch
+Der Production Branch des Projekts ist `claude/hallo-welt-website-app-5vflji`
+— ein Name aus der Vorgeschichte des Repos, der Inhalt ist der Ladeplaner.
+Wer ihn loswerden will, legt einen Branch mit passendem Namen an und stellt
+GitHubs Default-Branch sowie Vercels Production Branch darauf um.
 
 **Offline:** Es gibt keine CDN-Abhängigkeit — Leaflet liegt unter
 `vendor/leaflet/` mit im Repo, die Ladesäulendaten unter `data/`. Zusammen mit
@@ -166,7 +160,6 @@ vendor/leaflet/         Leaflet 1.9.4, lokal statt über ein CDN (BSD-2-Clause)
 tools/build_dataset.py  Erzeugt den Datensatz
 tools/make_icons.py     Erzeugt die App-Icons
 tests/                  Tests für Logik und Datensatz
-hallo-welt/             Die frühere Demo-Seite, unverändert
 ```
 
 ## Woher die Daten kommen, und was das heißt
