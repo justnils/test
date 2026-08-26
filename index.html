@@ -1,34 +1,94 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hallo Welt</title>
-  <meta name="description" content="Eine kleine Hallo-Welt-Website.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👋</text></svg>">
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ladeplaner Clohars-Carnoët → Aachen</title>
+<meta name="description" content="Schnellladesäulen ab 150 kW entlang der Nordroute über die Normandie — mit Umweg, Umgebung und Google-Maps-Navigation.">
+<meta name="theme-color" content="#0b1220">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-  <main class="card">
-    <p class="wave" aria-hidden="true">👋</p>
-    <h1 id="greeting">Hallo Welt</h1>
-    <p class="subtitle">Eine kleine Website, die freundlich Guten Tag sagt.</p>
 
-    <form id="name-form" autocomplete="off">
-      <label for="name-input">Wie heißt du?</label>
-      <div class="row">
-        <input id="name-input" name="name" type="text" placeholder="Dein Name" maxlength="40">
-        <button type="submit">Begrüßen</button>
-      </div>
-    </form>
+<header class="topbar">
+  <div class="trip">
+    <div class="trip-line">
+      <span class="badge" id="dir-badge">Hinfahrt</span>
+      <strong id="trip-title">Clohars-Carnoët → Aachen</strong>
+    </div>
+    <div class="trip-stats" id="trip-stats">Position wird ermittelt …</div>
+  </div>
+  <div class="topbar-actions">
+    <button type="button" id="btn-dir" class="icon-btn" title="Fahrtrichtung wechseln (Hin-/Rückfahrt)">
+      <span aria-hidden="true">⇄</span><span class="icon-btn-label">Richtung</span>
+    </button>
+    <button type="button" id="btn-locate" class="icon-btn" title="Eigene Position bestimmen">
+      <span aria-hidden="true">◎</span><span class="icon-btn-label">GPS</span>
+    </button>
+  </div>
+</header>
 
-    <p class="time" id="clock"></p>
-  </main>
+<div id="map" role="region" aria-label="Karte mit Route und Ladesäulen"></div>
 
-  <footer>
-    <button type="button" id="theme-toggle" aria-pressed="false">Dunkles Design</button>
-  </footer>
+<section class="filters" aria-label="Filter">
+  <div class="filter-row">
+    <div class="chipset" role="group" aria-label="Mindestleistung">
+      <button type="button" class="chip is-on" data-power="150">ab 150 kW</button>
+      <button type="button" class="chip" data-power="200">ab 200 kW</button>
+      <button type="button" class="chip" data-power="300">ab 300 kW</button>
+    </div>
+    <div class="chipset" role="group" aria-label="Maximaler Umweg">
+      <button type="button" class="chip" data-detour="5">≤ 5 min</button>
+      <button type="button" class="chip" data-detour="10">≤ 10 min</button>
+      <button type="button" class="chip is-on" data-detour="0">Umweg egal</button>
+    </div>
+  </div>
+  <div class="filter-row">
+    <div class="chipset" role="group" aria-label="Umgebung">
+      <button type="button" class="chip" data-need="burger">🍔 Burger</button>
+      <button type="button" class="chip" data-need="mall">🛍️ Mall</button>
+      <button type="button" class="chip" data-need="shoes">👟 Schuhe</button>
+      <button type="button" class="chip" data-need="supermarket">🛒 Super&shy;markt</button>
+      <button type="button" class="chip" data-need="toilets">🚻 WC</button>
+    </div>
+    <div class="chipset" role="group" aria-label="Reihenfolge">
+      <button type="button" class="chip is-on" data-order="strecke">nach Strecke</button>
+      <button type="button" class="chip" data-order="score">nach Bewertung</button>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="only-ahead" checked>
+      <span>nur voraus</span>
+    </label>
+  </div>
+</section>
 
-  <script src="script.js"></script>
+<main>
+  <div class="list-head">
+    <h2 id="list-title">Ladesäulen</h2>
+    <span class="hint" id="list-count"></span>
+  </div>
+  <ol id="list" class="list"></ol>
+  <p id="empty" class="empty" hidden>Keine Ladesäule passt zu den Filtern. Nimm den Umweg-Filter zurück oder senke die Mindestleistung.</p>
+</main>
+
+<footer class="foot">
+  <p id="data-note">Daten werden geladen …</p>
+  <p class="small">Ladesäulen &amp; Umgebung: OpenStreetMap (ODbL) · Routing: OSRM ·
+     Leistungsangaben stammen aus OSM und können veraltet sein — vor der Fahrt gegenprüfen.</p>
+</footer>
+
+<div id="sheet" class="sheet" hidden aria-live="polite"></div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/geo.js"></script>
+<script src="js/format.js"></script>
+<script src="js/data.js"></script>
+<script src="js/rank.js"></script>
+<script src="js/map.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>

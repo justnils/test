@@ -1,0 +1,17 @@
+{
+  "name": "Ladeplaner Clohars-Carnoët → Aachen",
+  "short_name": "Ladeplaner",
+  "description": "Schnellladesäulen ab 150 kW entlang der Nordroute über die Normandie, mit Umweg, Umgebung und Navigation.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "lang": "de",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
