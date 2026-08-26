@@ -2,12 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "headers": [
     {
-      "//": "Der Service Worker darf nie aus dem Cache kommen, sonst bleibt ein alter Datenstand kleben.",
       "source": "/sw.js",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "//": "Ladesäulendaten: immer gegen den Server prüfen, offline übernimmt der Service Worker.",
       "source": "/data/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
     },
@@ -16,7 +14,6 @@
       "headers": [{ "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" }]
     },
     {
-      "//": "Leaflet ist versioniert und ändert sich nicht — lange cachen spart unterwegs Daten.",
       "source": "/vendor/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }

@@ -77,9 +77,19 @@ Auf dem Handy: über einen beliebigen Static-Host veröffentlichen und dort
 
 **Vercel:** Das Repo ist mit dem Projekt `ladeplaner` im Team
 *Inform DataLab GmbH* verknüpft, jeder Push deployt automatisch.
-`vercel.json` setzt die Cache-Header: Service Worker ungecacht, Ladesäulendaten
-mit Revalidierung, Leaflet ein Jahr immutable. Es gibt keinen Build-Schritt,
-Vercel serviert die Dateien direkt.
+`vercel.json` setzt die Cache-Header. Es gibt keinen Build-Schritt, Vercel
+serviert die Dateien direkt. Warum die vier Regeln so aussehen:
+
+| Pfad | Regel | Grund |
+|---|---|---|
+| `/sw.js` | `no-store` | Ein gecachter Service Worker friert den Datenstand ein und lässt sich kaum noch loswerden. |
+| `/data/*` | `no-cache` | Immer gegen den Server prüfen; offline liefert der Service Worker den letzten Stand. |
+| `/manifest.webmanifest` | Content-Type | Ohne `application/manifest+json` ignorieren manche Browser das Manifest. |
+| `/vendor/*` | 1 Jahr `immutable` | Leaflet ist versioniert und ändert sich nicht — spart unterwegs Datenvolumen. |
+
+`vercel.json` verträgt keine Kommentarschlüssel: Vercel validiert die Datei
+gegen ein Schema und lehnt jede unbekannte Property ab, `"//"` eingeschlossen.
+Deshalb steht die Begründung hier statt in der Datei.
 
 Achtung bei der Produktions-URL: Vercel bedient sie aus dem **Production
 Branch** des Projekts, und der steht auf dem GitHub-Standard-Branch
