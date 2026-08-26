@@ -25,24 +25,32 @@ window.Fmt = (function () {
     return d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
   }
 
-  /* Farbklasse fuer den Umweg: bis 5 min gruen, bis 12 min gelb, darueber rot. */
+  /* Farbklasse fuer den Umweg: bis 5 min gruen, bis 12 gelb, darueber rot. */
   function detourClass(min) {
     if (min <= 5) { return "detour-good"; }
     if (min <= 12) { return "detour-mid"; }
     return "detour-bad";
   }
 
+  /* Umwegtext: unter 2 Minuten ist es fuer den Fahrer "direkt an der Route". */
+  function detourText(min) {
+    // Geschütztes Leerzeichen: der Wert soll als Einheit umbrechen,
+    // nie mitten in "+10 min".
+    return min <= 1 ? "direkt an der\u00A0Route"
+                    : "+" + min + "\u00A0min\u00A0Umweg";
+  }
+
   var ICONS = {
-    burger: "🍔", fastfood: "🌭", restaurant: "🍽️", cafe: "☕", mall: "🛍️",
-    shoes: "👟", shopping: "🏬", supermarket: "🛒", toilets: "🚻",
-    fuel: "⛽", hotel: "🛏️", playground: "🧒"
+    fastfood: "🍔", restaurant: "🍽️", cafe: "☕", kinder: "🛝",
+    mall: "🛍️", mode: "👟", deko: "🎁", supermarkt: "🛒",
+    wc: "🚻", hotel: "🛏️", tanken: "⛽", apotheke: "💊"
   };
 
   var CAT_NAMES = {
-    burger: "Burger", fastfood: "Fast Food", restaurant: "Restaurant",
-    cafe: "Café", mall: "Einkaufszentrum", shoes: "Schuhe",
-    shopping: "Shopping", supermarket: "Supermarkt", toilets: "WC",
-    fuel: "Tankstelle", hotel: "Hotel", playground: "Spielplatz"
+    fastfood: "Schnell essen", restaurant: "Restaurant", cafe: "Café & Bäcker",
+    kinder: "Für Kinder", mall: "Einkaufszentrum", mode: "Mode & Schuhe",
+    deko: "Deko & Geschenke", supermarkt: "Supermarkt", wc: "WC",
+    hotel: "Hotel", tanken: "Tankstelle", apotheke: "Apotheke"
   };
 
   function icon(cat) { return ICONS[cat] || "•"; }
@@ -54,6 +62,7 @@ window.Fmt = (function () {
     });
   }
 
-  return { km: km, minutes: minutes, clockIn: clockIn, detourClass: detourClass,
+  return { km: km, minutes: minutes, clockIn: clockIn,
+           detourClass: detourClass, detourText: detourText,
            icon: icon, catName: catName, esc: esc };
 })();

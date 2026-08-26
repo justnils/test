@@ -22,7 +22,6 @@
 
 html, body {
   margin: 0;
-  overflow-x: hidden;
   background: var(--bg);
   color: var(--fg);
   font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -33,8 +32,7 @@ html, body {
 /* ---------------------------------------------------------- Kopfzeile */
 
 .topbar {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 900;
   display: flex;
   gap: 12px;
@@ -266,11 +264,10 @@ main { padding: 0 12px 24px; }
 
 .card-sub {
   color: var(--fg-dim);
-  font-size: 12.5px;
+  font-size: 13px;
   margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
 }
 
 .kw {
@@ -420,3 +417,329 @@ main { padding: 0 12px 24px; }
 .rank.score-mid { background: var(--warn); color: #3a2a02; }
 .rank.score-low { background: #475569; color: var(--fg); }
 .chip:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ============================================================ UX-Umbau */
+
+/* Modus-Umschalter: Planen (Küchentisch) vs. Fahren (unterwegs) */
+.mode-row {
+  display: flex;
+  gap: 0;
+  padding: 8px 14px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line);
+}
+
+.mode-tab {
+  flex: 1;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--fg-dim);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mode-tab:first-child { border-radius: 11px 0 0 11px; }
+.mode-tab:last-child { border-radius: 0 11px 11px 0; border-left: none; }
+.mode-tab.is-on { background: var(--accent-dim); color: var(--accent); border-color: #2b6b42; }
+
+/* Hero: der Vorschlag, der die Frage "Wo halten wir?" beantwortet */
+.hero {
+  padding: 14px 12px 4px;
+  background: var(--bg-soft);
+}
+
+.hero-label {
+  margin: 0 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.hero-card {
+  background: var(--card);
+  border: 1px solid #2b6b42;
+  border-radius: var(--radius);
+  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.hero-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hero-head h3 { margin: 0; font-size: 18px; line-height: 1.25; }
+
+.hero-primary {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-alts { display: grid; gap: 6px; margin-top: 8px; }
+
+.hero-alt {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+  min-height: 44px;
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--fg);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.hero-alt-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hero-alt-meta { flex: none; color: var(--fg-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.hero-all {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  background: none;
+  border: none;
+  color: var(--fg-dim);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Eine Filterzeile: Presets scrollbar, Filterknopf rechts angepinnt */
+.preset-row {
+  position: sticky;
+  top: 0;
+  z-index: 800;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.preset-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.preset-chips::-webkit-scrollbar { display: none; }
+
+.chip-filter { flex: none; }
+.chip-filter.is-on { background: #10243d; border-color: #26527d; color: #7dd3fc; }
+
+/* "angepasst"-Punkt am aktiven Preset */
+.chip.is-tuned::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  vertical-align: middle;
+}
+
+/* Stern zum Merken */
+.star {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: -6px -6px 0 0;
+  background: none;
+  border: none;
+  color: var(--fg-dim);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.star.is-on { color: var(--warn); }
+
+/* Badges am Ladepark */
+.tag {
+  align-self: center;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 2px 7px;
+  font-size: 11.5px;
+  color: var(--fg-dim);
+}
+
+.tag-rast { color: var(--accent); border-color: #2b6b42; }
+
+/* POI-Chip: Sonntag-zu-Warnung */
+.poi small { color: var(--fg-dim); font-size: 11px; }
+.poi-zu { border-color: #7c3f3f; }
+.poi-zu small { color: var(--bad); }
+
+button.poi-more {
+  background: none;
+  border: none;
+  cursor: pointer;
+  min-height: 32px;
+}
+
+/* Aufgeklappte Details */
+.card-details {
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+  display: grid;
+  gap: 8px;
+}
+
+.det-meta { margin: 0; color: var(--fg-dim); font-size: 12.5px; line-height: 1.5; }
+.det-group { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.det-cat { font-size: 12px; color: var(--fg-dim); margin-right: 3px; min-width: 110px; }
+
+/* -------------------------------------------------------- Filter-Sheet */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(4, 8, 16, .6);
+}
+
+.filter-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;
+  max-height: 82vh;
+  overflow-y: auto;
+  background: var(--bg-soft);
+  border-top: 1px solid var(--line);
+  border-radius: 18px 18px 0 0;
+  padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
+}
+
+.sheet-grip {
+  width: 42px;
+  height: 4px;
+  margin: 4px auto 10px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.sheet-section { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.sheet-section:last-of-type { border-bottom: none; }
+.sheet-section h3 { margin: 0 0 8px; font-size: 13px; color: var(--fg-dim); font-weight: 600; }
+
+/* Segmented Control */
+.seg { display: flex; }
+
+.seg-btn {
+  flex: 1;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-left: none;
+  background: var(--card);
+  color: var(--fg-dim);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.seg-btn:first-child { border-left: 1px solid var(--line); border-radius: 10px 0 0 10px; }
+.seg-btn:last-child { border-radius: 0 10px 10px 0; }
+.seg-btn.is-on { background: var(--accent-dim); color: var(--accent); border-color: #2b6b42; }
+
+.sheet-footer {
+  display: flex;
+  gap: 10px;
+  padding-top: 12px;
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-soft);
+}
+
+body.sheet-open { overflow: hidden; }
+
+/* ---------------------------------------------------------- Fahrmodus */
+
+/* Unterwegs: Karte klein, Schrift größer, Ziele größer. */
+body.mode-fahrt #map { height: 26vh; min-height: 170px; }
+body.mode-fahrt .card-sub { font-size: 15px; }
+body.mode-fahrt .hero-primary { font-size: 18px; }
+body.mode-fahrt .btn { min-height: 52px; font-size: 15px; }
+body.mode-fahrt .foot { display: none; }
+
+/* Leerzustand mit Ausweg */
+.empty { display: grid; gap: 8px; justify-items: center; }
+.empty .btn { max-width: 260px; }
+
+/* ------------------------------------------------- Scrollen der Liste */
+
+/* Abschnittsköpfe: bleiben beim Scrollen unter der Filterzeile kleben
+   (iOS-Gruppenlisten / Material Sticky Headers). */
+.list-section {
+  position: sticky;
+  top: 58px;                    /* Höhe der Preset-Zeile */
+  z-index: 700;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 6px -12px 0;
+  padding: 8px 14px 6px;
+  background: linear-gradient(180deg, var(--bg) 82%, rgba(11, 18, 32, 0));
+  list-style: none;
+}
+
+.list-section span {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.list-section small {
+  font-size: 11px;
+  color: var(--fg-dim);
+  opacity: .7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Karten erst rendern, wenn sie in Sichtweite kommen — bei 132 Einträgen
+   der Unterschied zwischen zähem und butterweichem Scrollen. */
+.card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 190px;
+}
+
+/* Nach-oben-Knopf (Material FAB), erscheint erst tief in der Liste */
+.fab {
+  position: fixed;
+  right: 14px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 950;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card-hi);
+  color: var(--fg);
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+}

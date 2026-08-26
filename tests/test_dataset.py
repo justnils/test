@@ -60,21 +60,41 @@ for tags, erwartet in [
     ok(f"{tags} → {'behalten' if erwartet else 'verworfen'}",
        (p(tags) >= 150) == erwartet)
 
-print("\nEinordnung der Umgebung")
-c = bd.categorize
-eq("McDonald's", c({"amenity": "fast_food", "name": "McDonald's"})[0], "burger")
-eq("Burger King über brand", c({"amenity": "fast_food", "brand": "Burger King"})[0], "burger")
-eq("KFC", c({"amenity": "fast_food", "name": "KFC Amiens"})[0], "burger")
-eq("sonstiger Imbiss", c({"amenity": "fast_food", "name": "Chez Loïc"})[0], "fastfood")
-eq("Einkaufszentrum", c({"shop": "mall", "name": "Centre Commercial"})[0], "mall")
-eq("Kaufhaus", c({"shop": "department_store"})[0], "mall")
-eq("Schuhgeschäft", c({"shop": "shoes"})[0], "shoes")
-eq("Supermarkt", c({"shop": "supermarket", "name": "Carrefour"})[0], "supermarket")
-eq("WC", c({"amenity": "toilets"})[0], "toilets")
-eq("Hotel", c({"tourism": "hotel", "name": "Ibis"})[0], "hotel")
-ok("uninteressantes Objekt wird verworfen", c({"barrier": "fence"}) is None)
-eq("Name ohne eigenen Namen fällt auf die Gattung zurück",
-   c({"shop": "mall"})[1], "Einkaufszentrum")
+print("\nProfil-Scores")
+def poi(cat, dist, **kw):
+    return {"cat": cat, "name": cat, "dist_m": dist, "pos": [49.0, 2.0], **kw}
+
+gold = [poi("kinder", 150, art="playground"), poi("fastfood", 200, brand="mcdonalds"), poi("wc", 100)]
+ok("Familien-Gold (Spielplatz+McD+WC nah) über 80", bd.score_familie(gold) > 80,
+   str(bd.score_familie(gold)))
+kein_auslauf = [poi("fastfood", 100, brand="mcdonalds"), poi("wc", 50), poi("cafe", 80)]
+ok("Bewegungs-Veto deckelt ohne Spielplatz auf ≤25",
+   bd.score_familie(kein_auslauf) <= 25, str(bd.score_familie(kein_auslauf)))
+weit = [poi("kinder", 900, art="playground"), poi("fastfood", 900)]
+ok("Alles 900 m weg zählt kaum", bd.score_familie(weit) < 25, str(bd.score_familie(weit)))
+ok("leer = 0", bd.score_familie([]) == 0)
+nur_picknick = [poi("kinder", 100, art="picnic"), poi("kinder", 200, art="picnic"),
+                poi("fastfood", 150), poi("wc", 100)]
+ok("Picknicktische allein sind keine Bewegung (Veto greift)",
+   bd.score_familie(nur_picknick) <= 25, str(bd.score_familie(nur_picknick)))
+mit_bolzplatz = nur_picknick + [poi("kinder", 250, art="pitch")]
+ok("Bolzplatz hebt das Veto auf", bd.score_familie(mit_bolzplatz) > 50,
+   str(bd.score_familie(mit_bolzplatz)))
+
+outlet = [poi("mall", 200, outlet=True)] + [poi("mode", 100 + i) for i in range(12)]
+ok("Outlet mit vielen Läden über 75", bd.score_shopping(outlet) > 75,
+   str(bd.score_shopping(outlet)))
+einzeln = [poi("mode", 400)]
+ok("Ein einzelner Laden bleibt klein", bd.score_shopping(einzeln) < 25,
+   str(bd.score_shopping(einzeln)))
+ok("Outlet schlägt gleiche Mall ohne Outlet",
+   bd.score_shopping(outlet) > bd.score_shopping(
+       [poi("mall", 200)] + [poi("mode", 100 + i) for i in range(12)]))
+
+voll = [poi("fastfood", 100, brand="burgerking"), poi("restaurant", 200),
+        poi("cafe", 150), poi("supermarkt", 250)]
+ok("volles Essensangebot über 80", bd.score_essen(voll) > 80, str(bd.score_essen(voll)))
+ok("nur Café bleibt unter 25", bd.score_essen([poi("cafe", 200)]) < 25)
 
 print("\nGeometrie")
 linie = [(48.0, 2.0), (49.0, 2.0), (50.0, 2.0)]
@@ -97,19 +117,24 @@ ok("5 km abseits ergibt mehr Umweg als 0 km", min2 > minuten and km2 > km,
 ok("Umweg zählt hin und zurück", abs(km2 - 2 * 5.0 * 1.4) < 0.11, f"{km2} km")
 
 print("\nBewertung")
-basis = {"power_kw": 150, "detour_min": 20, "stalls": 2, "pois": []}
-top = {"power_kw": 350, "detour_min": 0, "stalls": 12,
-       "pois": [{"cat": "burger"}, {"cat": "mall"}, {"cat": "toilets"},
-                {"cat": "supermarket"}, {"cat": "restaurant"}]}
+basis = {"power_kw": 150, "detour_min": 20, "stalls": 2,
+         "s_familie": 0, "s_shopping": 0, "s_essen": 0}
+top = {"power_kw": 350, "detour_min": 0, "stalls": 12, "raststaette": "services",
+       "s_familie": 95, "s_shopping": 80, "s_essen": 90}
 ok("schlechtester Fall nahe 0", bd.score(basis) < 15, str(bd.score(basis)))
-ok("bester Fall nahe 100", bd.score(top) > 90, str(bd.score(top)))
+ok("bester Fall über 85", bd.score(top) > 85, str(bd.score(top)))
 ok("kurzer Umweg schlägt langen",
    bd.score({**basis, "detour_min": 2}) > bd.score({**basis, "detour_min": 18}))
 ok("mehr Leistung schlägt weniger",
    bd.score({**basis, "power_kw": 350}) > bd.score({**basis, "power_kw": 150}))
-ok("Umgebung hebt die Bewertung",
-   bd.score({**basis, "pois": [{"cat": "burger"}, {"cat": "mall"}]}) > bd.score(basis))
-ok("Bewertung bleibt im Bereich 0–100",
+ok("gutes Profil hebt die Bewertung",
+   bd.score({**basis, "s_familie": 90}) > bd.score(basis))
+ok("ein Spitzenprofil zählt mehr als drei laue",
+   bd.score({**basis, "s_familie": 90}) > bd.score({**basis, "s_familie": 35,
+                                                    "s_shopping": 35, "s_essen": 35}))
+ok("Raststätte gibt Bonus",
+   bd.score({**basis, "raststaette": "services"}) > bd.score(basis))
+ok("Bewertung bleibt im Bereich 0-100",
    all(0 <= bd.score(x) <= 100 for x in (basis, top, {**basis, "stalls": 999})))
 
 print("\nNordroute statt Paris")

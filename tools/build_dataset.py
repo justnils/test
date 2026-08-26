@@ -25,6 +25,8 @@ import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import poi_rules as rules  # noqa: E402 - Marken, Kategorien, Oeffnungszeiten
 ROOT = os.path.dirname(HERE)
 DATA = os.path.join(ROOT, "data")
 
@@ -171,7 +173,7 @@ def overpass(query):
     for ep in OVERPASS_ENDPOINTS:
         try:
             print(f"  -> Overpass {urllib.parse.urlparse(ep).netloc}", file=sys.stderr)
-            result = http_get(ep, data={"data": query}, tries=3, timeout=240)
+            result = http_get(ep, data={"data": query}, tries=5, timeout=240)
             with open(cp, "w", encoding="utf-8") as f:
                 json.dump(result, f)
             return result
@@ -288,55 +290,26 @@ def socket_summary(tags):
 
 # ---------------------------------------------------------------- POIs
 
-# Was in der Naehe einer Ladesaeule interessant ist, in wenigen Statements
-# zusammengefasst — jede zusaetzliche Zeile kostet Overpass spuerbar Zeit.
+# Was in der Naehe einer Ladesaeule interessant ist. Die Auswahl folgt der
+# Recherche (Eltern-Foren, Shopping-Ziele der Route, OSM-Wiki):
+#   - Kinder brauchen nach Stunden im Auto BEWEGUNG: Spielplatz, Park,
+#     Bolzplatz, Indoor-Spielhalle; kids_area markiert Restaurants mit
+#     Spielbereich (McDonald's PlayPlace).
+#   - Shopping heisst Mode/Schuhe/Beauty/Deko — Baumarkt und Autoteile
+#     wuerden jede Peripherie-Zone dominieren und bleiben deshalb draussen.
+#   - highway=services/rest_area erkennt, dass der Ladepark AN der
+#     Raststaette liegt (Umweg praktisch null, WC garantiert).
 POI_FILTERS = [
-    'nwr[amenity~"^(fast_food|restaurant|cafe|ice_cream|toilets|fuel)$"]',
-    'nwr[shop~"^(mall|department_store|shoes|clothes|sports|outdoor|furniture'
-    '|electronics|doityourself|supermarket|convenience|bakery)$"]',
-    'nwr[tourism~"^(hotel|motel)$"]',
-    'nwr[leisure=playground]',
+    'nwr[amenity~"^(fast_food|restaurant|cafe|ice_cream|toilets|fuel|pharmacy)$"]',
+    'nwr[shop~"^(mall|department_store|clothes|shoes|bags|fashion_accessories'
+    '|jewelry|watches|cosmetics|perfumery|beauty|interior_decoration|houseware'
+    '|gift|variety_store|toys|sports|outdoor|supermarket|convenience|bakery)$"]',
+    'nwr[leisure~"^(playground|park|pitch|indoor_play|trampoline_park'
+    '|miniature_golf|picnic_table)$"]',
+    'nwr[tourism~"^(hotel|motel|picnic_site)$"]',
+    'nwr[kids_area~"^(yes|designated)$"]',
+    'nwr[highway~"^(services|rest_area)$"]',
 ]
-
-BURGER = re.compile(r"mcdonald|burger king|kfc|quick|five guys|wendy", re.I)
-COFFEE = re.compile(r"starbucks|costa|columbus caf|paul|brioche", re.I)
-
-
-def categorize(tags):
-    """OSM-Tags -> (Kategorie, Anzeigename). None = uninteressant."""
-    name = tags.get("brand") or tags.get("name") or ""
-    shop = tags.get("shop", "")
-    amenity = tags.get("amenity", "")
-    tourism = tags.get("tourism", "")
-
-    if amenity == "fast_food":
-        return ("burger" if BURGER.search(name) else "fastfood", name or "Fast Food")
-    if amenity == "restaurant":
-        return ("restaurant", name or "Restaurant")
-    if amenity in ("cafe", "ice_cream"):
-        return ("cafe", name or ("Eisdiele" if amenity == "ice_cream" else "Café"))
-    if shop in ("mall", "department_store"):
-        return ("mall", name or ("Einkaufszentrum" if shop == "mall" else "Kaufhaus"))
-    if shop == "shoes":
-        return ("shoes", name or "Schuhgeschäft")
-    if shop in ("clothes", "sports", "outdoor", "furniture", "electronics", "doityourself"):
-        return ("shopping", name or shop)
-    if shop in ("supermarket", "convenience", "bakery"):
-        return ("supermarket", name or {"supermarket": "Supermarkt",
-                                        "convenience": "Kiosk",
-                                        "bakery": "Bäckerei"}[shop])
-    if amenity == "toilets":
-        return ("toilets", "WC")
-    if amenity == "fuel":
-        return ("fuel", name or "Tankstelle")
-    if tourism in ("hotel", "motel"):
-        return ("hotel", name or "Hotel")
-    if tags.get("leisure") == "playground":
-        return ("playground", "Spielplatz")
-    if COFFEE.search(name):
-        return ("cafe", name)
-    return None
-
 
 def element_latlon(el):
     if "lat" in el and "lon" in el:
@@ -491,34 +464,141 @@ def exact_detour(charger, route, cum, arm_m=9000):
 
 # ---------------------------------------------------------------- Bewertung
 
-# Wie stark eine POI-Kategorie in die Bewertung eingeht.
-POI_WEIGHT = {
-    "burger": 10, "mall": 10, "fastfood": 6, "restaurant": 5, "supermarket": 5,
-    "shoes": 4, "shopping": 4, "cafe": 3, "toilets": 3, "hotel": 2,
-    "fuel": 1, "playground": 1,
-}
+def decay(d):
+    """Fusswegfaktor: unter 300 m voll, bis 600 m halb, danach wenig.
+
+    900 m einfache Strecke frisst die halbe Ladezeit — sagt jede
+    Eltern-Recherche, gilt aber genauso fuer den Schuhladen.
+    """
+    if d < 300:
+        return 1.0
+    if d < 600:
+        return 0.55
+    return 0.25
+
+
+def _best(pois, cats, brands=None):
+    """Naechster POI aus den Kategorien (optional nur bestimmte Marken)."""
+    best = None
+    for p in pois:
+        if p["cat"] not in cats:
+            continue
+        if brands is not None and p.get("brand") not in brands:
+            continue
+        if best is None or p["dist_m"] < best["dist_m"]:
+            best = p
+    return best
+
+
+def score_familie(pois):
+    """0-100: Taugt der Stopp fuer Kinder, die seit Stunden sitzen?
+
+    Regeln aus der Eltern-Recherche: Bewegung > Essen > WC. Ohne
+    Bewegungsangebot in Laufweite hilft auch das beste Eis nichts
+    (Bewegungs-Veto). Spielplatz + Essen + WC dicht beieinander ist Gold.
+    """
+    BEWEGT = ("playground", "park", "pitch", "indoor_play",
+              "trampoline_park", "amusement_arcade", "miniature_golf")
+    bewegung = None
+    picknick = None
+    for p in pois:
+        if p["cat"] != "kinder":
+            continue
+        if p.get("art") in BEWEGT:
+            if bewegung is None or p["dist_m"] < bewegung["dist_m"]:
+                bewegung = p
+        elif p.get("art") == "picnic":
+            if picknick is None or p["dist_m"] < picknick["dist_m"]:
+                picknick = p
+    spielplatz = bewegung
+    essen = _best(pois, {"fastfood", "restaurant"})
+    wc = _best(pois, {"wc"})
+    eis = _best(pois, {"cafe"})
+
+    pts = 0.0
+    if spielplatz:
+        pts += 35 * decay(spielplatz["dist_m"])
+    if essen:
+        pts += 20 * decay(essen["dist_m"])
+        if essen.get("kids") or essen.get("brand") in ("mcdonalds", "burgerking"):
+            pts += 10          # Spielbereich drinnen — Regenwetter-Retter
+    if wc:
+        pts += 12
+    elif essen:
+        pts += 6               # Restaurant hat immer ein WC
+    if eis:
+        pts += 6
+    if picknick:
+        pts += 4               # nett, aber kein Ersatz fuers Austoben
+
+    # Gold-Kombination: alles unter 400 m
+    if (spielplatz and spielplatz["dist_m"] < 400 and essen and
+            essen["dist_m"] < 400 and (wc or essen)):
+        pts *= 1.2
+    # Bewegungs-Veto: nichts zum Austoben in 600 m -> hart deckeln
+    if not (bewegung and bewegung["dist_m"] < 600):
+        pts = min(pts, 25.0)
+    return round(min(100.0, pts))
+
+
+def score_shopping(pois):
+    """0-100: Lohnt der Stopp zum Shoppen (Mode, Schuhe, Deko)?
+
+    Shop-Dichte logarithmisch gedaempft — 5 Laeden sind viel besser als
+    einer, 50 kaum besser als 30. Einkaufszentrum und Outlet on top.
+    """
+    laeden = [p for p in pois if p["cat"] in ("mode", "deko")]
+    n = len(laeden)
+    pts = 55.0 * min(1.0, math.log10(1 + n) / math.log10(30))
+    mall = _best(pois, {"mall"})
+    if mall:
+        pts += 25 * decay(mall["dist_m"])
+        if mall.get("outlet"):
+            pts += 20          # Outlet ist das Ziel, nicht der Kompromiss
+    return round(min(100.0, pts))
+
+
+def score_essen(pois):
+    """0-100: Wie gut kann man hier essen?"""
+    ff = _best(pois, {"fastfood"})
+    rest = _best(pois, {"restaurant"})
+    cafe = _best(pois, {"cafe"})
+    markt = _best(pois, {"supermarkt"})
+    pts = 0.0
+    if ff:
+        pts += 40 * decay(ff["dist_m"])
+        if ff.get("brand"):
+            pts += 10          # bekannte Marke = bekannte Erwartung
+    if rest:
+        pts += 25 * decay(rest["dist_m"])
+    if cafe:
+        pts += 15 * decay(cafe["dist_m"])
+    if markt:
+        pts += 10 * decay(markt["dist_m"])
+    return round(min(100.0, pts))
 
 
 def score(charger):
-    """Gesamtbewertung 0-100 aus Leistung, Umweg und Umfeld."""
+    """Gesamtbewertung 0-100 aus Leistung, Umweg, Ladepunkten und Umfeld.
+
+    Umfeld = die Profil-Scores (Familie/Shopping/Essen): das beste Profil
+    zaehlt am meisten — ein herausragender Familien-Stopp ohne Shopping
+    ist ein guter Stopp, kein mittelmaessiger.
+    """
     kw = charger["power_kw"]
-    power = min(1.0, max(0.0, (kw - 150) / 200.0))            # 150 kW = 0, 350 kW = 1
-    detour = max(0.0, 1.0 - charger["detour_min"] / 20.0)     # 0 min = 1, 20 min = 0
+    power = min(1.0, max(0.0, (kw - 150) / 200.0))
+    detour = max(0.0, 1.0 - charger["detour_min"] / 20.0)
     stalls = min(1.0, (charger.get("stalls") or 2) / 12.0)
 
-    pts = 0
-    seen = set()
-    for poi in charger["pois"]:
-        w = POI_WEIGHT.get(poi["cat"], 0)
-        if poi["cat"] not in seen:
-            pts += w                     # erste Nennung zaehlt voll
-            seen.add(poi["cat"])
-        else:
-            pts += w * 0.25              # weitere nur anteilig
-    umfeld = min(1.0, pts / 30.0)
+    profile = [charger.get("s_familie", 0), charger.get("s_shopping", 0),
+               charger.get("s_essen", 0)]
+    umfeld = (0.6 * max(profile) + 0.4 * (sum(profile) / 3)) / 100.0
+    if charger.get("raststaette"):
+        umfeld = min(1.0, umfeld + 0.10)   # WC + kurze Wege garantiert
 
-    total = 100 * (0.25 * power + 0.35 * detour + 0.30 * umfeld + 0.10 * stalls)
+    total = 100 * (0.22 * power + 0.32 * detour + 0.36 * umfeld + 0.10 * stalls)
     return round(total)
+
 
 # ---------------------------------------------------------------- Aufbau
 
@@ -562,20 +642,37 @@ def build_charger(el, route, cum, min_kw):
         "detour_km": detour_km,
         "detour_min": detour_min,
         "exact": False,
+        "raststaette": None,
         "pois": [],
     }
 
 
+RASTSTAETTE_M = 400    # Ladepark liegt "an der Raststaette", wenn so nah
+
+
 def attach_pois(chargers, pois):
-    """Jeden POI der naechstgelegenen Ladesaeule zuordnen."""
+    """POIs kategorisieren, der naechsten Saeule zuordnen, Flags setzen."""
+    playgrounds = []       # fuer die McDonald's-Spielbereich-Heuristik
+    einordnungen = []
+
     for el in pois.values():
         pos = element_latlon(el)
         tags = el.get("tags", {})
         if not pos or not tags:
             continue
-        cat = categorize(tags)
+
+        # Raststaetten sind kein POI-Chip, sondern ein Flag am Ladepark.
+        if tags.get("highway") in ("services", "rest_area"):
+            for c in chargers:
+                if haversine(pos, c["pos"]) < RASTSTAETTE_M:
+                    c["raststaette"] = tags["highway"]
+            continue
+
+        cat = rules.categorize(tags)
         if not cat:
             continue
+        kind, name, brand = cat[0], cat[1], cat[2]
+        extras = cat[3] if len(cat) > 3 else {}
         nearest, nd = None, float("inf")
         for c in chargers:
             d = haversine(pos, c["pos"])
@@ -583,15 +680,42 @@ def attach_pois(chargers, pois):
                 nearest, nd = c, d
         if nearest is None or nd > POI_RADIUS_M:
             continue
-        nearest["pois"].append({
-            "cat": cat[0],
-            "name": cat[1],
-            "pos": [round(pos[0], 6), round(pos[1], 6)],
-            "dist_m": round(nd),
-        })
+
+        poi = {"cat": kind, "name": name, "dist_m": round(nd),
+               "pos": [round(pos[0], 6), round(pos[1], 6)]}
+        poi.update(extras)
+        if brand:
+            poi["brand"] = brand
+        flags = rules.opening_flags(tags.get("opening_hours"))
+        if flags["sunday"] != "unknown":
+            poi["sunday"] = flags["sunday"]
+        if flags["h24"]:
+            poi["h24"] = True
+        if tags.get("kids_area") in ("yes", "designated"):
+            poi["kids"] = True
+        if kind == "mall" and rules._OUTLET_RX.search(name):
+            poi["outlet"] = True
+        if kind == "kinder" and tags.get("leisure") == "playground":
+            playgrounds.append(pos)
+        einordnungen.append((nearest, poi))
+
+    for nearest, poi in einordnungen:
+        nearest["pois"].append(poi)
+
     for c in chargers:
-        c["pois"].sort(key=lambda p: (-POI_WEIGHT.get(p["cat"], 0), p["dist_m"]))
-        c["pois"] = c["pois"][:14]
+        # Heuristik: Spielplatz-Node dicht neben McDonald's/Burger King
+        # -> das ist der Restaurant-Spielbereich.
+        for p in c["pois"]:
+            if p.get("brand") in ("mcdonalds", "burgerking") and not p.get("kids"):
+                pp = [round(v, 6) for v in p["pos"]]
+                if any(haversine(pp, pg) < 80 for pg in playgrounds):
+                    p["kids"] = True
+        gewicht = {k: v[2] for k, v in rules.CATEGORIES.items()}
+        c["pois"].sort(key=lambda p: (-gewicht.get(p["cat"], 0), p["dist_m"]))
+        c["pois"] = c["pois"][:18]
+        c["s_familie"] = score_familie(c["pois"])
+        c["s_shopping"] = score_shopping(c["pois"])
+        c["s_essen"] = score_essen(c["pois"])
 
 
 def main():

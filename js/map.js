@@ -128,7 +128,13 @@ window.MapView = (function () {
 
   function isReady() { return ready; }
 
-  return { init: init, isReady: isReady, drawRoutes: drawRoutes,
-           drawChargers: drawChargers, setActive: setActive,
-           focus: focus, setMe: setMe };
+  /* Nach Layoutwechseln (Fahrmodus schrumpft die Karte) muss Leaflet die
+     neue Groesse erfahren, sonst rendert es in die alte Flaeche. */
+  function invalidate() {
+    if (ready) { setTimeout(function () { map.invalidateSize(); }, 60); }
+  }
+
+  return { init: init, isReady: isReady, invalidate: invalidate,
+           drawRoutes: drawRoutes, drawChargers: drawChargers,
+           setActive: setActive, focus: focus, setMe: setMe };
 })();

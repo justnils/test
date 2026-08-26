@@ -128,62 +128,108 @@ live = Rank.withLiveMetrics(set, { alongMe: 300000, reverse: false, kmh: 3 });
 ok("unrealistisch langsames GPS-Tempo wird ersetzt",
    near(live[2].etaMin, 200 / Rank.DEFAULT_KMH * 60, 0.1), String(live[2].etaMin));
 
-// Filter
+// Filter mit Muss-Gruppen (ODER innerhalb, UND zwischen Gruppen)
+function grp(cats, brands, maxDist) {
+  return { cats: cats, brands: brands || [], maxDist: maxDist || 1000 };
+}
+function fil(over) {
+  return Object.assign({ preset: "alles", minPower: 150, maxDetour: 0,
+                         needAny: [], order: "strecke", onlyAhead: true }, over);
+}
 const state = { alongMe: 0, reverse: false, kmh: 100 };
 const mixed = [
   charger("p150", 100, { power_kw: 150, score: 50 }),
   charger("p350", 200, { power_kw: 350, score: 90 }),
   charger("weit", 300, { power_kw: 300, detour_min: 25, score: 70 }),
-  charger("burger", 400, { power_kw: 300, score: 80,
-                           pois: [{ cat: "burger", name: "McDonald's", dist_m: 120 }] })
+  charger("mcd", 400, { power_kw: 300, score: 80,
+    pois: [{ cat: "fastfood", brand: "mcdonalds", name: "McDonald's", dist_m: 120 }] }),
+  charger("spiel", 500, { power_kw: 300, score: 75,
+    pois: [{ cat: "kinder", name: "Spielplatz", dist_m: 250 },
+           { cat: "fastfood", name: "Friterie", dist_m: 700 }] })
 ];
 
-let r = Rank.apply(mixed, state, { minPower: 300, maxDetour: 0, need: [], onlyAhead: true });
+let r = Rank.apply(mixed, state, fil({ minPower: 300 }));
 ok("Leistungsfilter 300 kW lässt 150-kW-Säule raus",
-   !r.some((c) => c.id === "p150") && r.length === 3, "n=" + r.length);
+   !r.some((c) => c.id === "p150") && r.length === 4, "n=" + r.length);
 
-r = Rank.apply(mixed, state, { minPower: 150, maxDetour: 10, need: [], onlyAhead: true });
+r = Rank.apply(mixed, state, fil({ maxDetour: 10 }));
 ok("Umwegfilter 10 min entfernt die 25-min-Säule", !r.some((c) => c.id === "weit"));
 
-r = Rank.apply(mixed, state, { minPower: 150, maxDetour: 0, need: ["burger"], onlyAhead: true });
-ok("Burger-Filter lässt nur die passende Säule übrig",
-   r.length === 1 && r[0].id === "burger", "n=" + r.length);
+r = Rank.apply(mixed, state, fil({ needAny: [grp(["fastfood"], [], 300)] }));
+ok("Fastfood ≤300 m: nur McDonald's-Park bleibt",
+   r.length === 1 && r[0].id === "mcd", "n=" + r.length + " " + r.map(c=>c.id));
 
-r = Rank.apply(mixed, state, { minPower: 150, maxDetour: 0, need: ["burger", "mall"], onlyAhead: true });
-ok("mehrere Bedingungen müssen alle zutreffen", r.length === 0, "n=" + r.length);
+r = Rank.apply(mixed, state, fil({ needAny: [grp(["kinder"], ["mcdonalds"], 400)] }));
+ok("Kinder-Gruppe: Spielplatz ODER McDonald's erfüllt sie",
+   r.length === 2 && r.some(c=>c.id==="mcd") && r.some(c=>c.id==="spiel"),
+   r.map(c=>c.id).join(","));
+
+r = Rank.apply(mixed, state, fil({ needAny: [grp(["kinder"], [], 400), grp(["fastfood"], [], 300)] }));
+ok("zwei Gruppen = UND: keiner erfüllt beide", r.length === 0, "n=" + r.length);
+
+// Presets
+const kp = Rank.presetFilters("kinder");
+ok("Preset kinder setzt 150 kW / ≤10 min", kp.minPower === 150 && kp.maxDetour === 10);
+ok("Preset kinder hat genau eine Muss-Gruppe", kp.needAny.length === 1);
+ok("Preset-Definition wird kopiert, nicht referenziert",
+   (kp.needAny[0].cats.push("x"), Rank.presetFilters("kinder").needAny[0].cats.length === 1));
+ok("deviationCount 0 bei unverändertem Preset",
+   Rank.deviationCount(Rank.presetFilters("shoppen")) === 0);
+const abw = Rank.presetFilters("shoppen"); abw.minPower = 300;
+ok("deviationCount zählt Abweichungen", Rank.deviationCount(abw) === 1,
+   String(Rank.deviationCount(abw)));
 
 // Sortierung: was voraus liegt zuerst, dann nach Bewertung
 r = Rank.apply(mixed, { alongMe: 250000, reverse: false, kmh: 100 },
-               { minPower: 150, maxDetour: 0, need: [], onlyAhead: false });
+               fil({ onlyAhead: false, order: "strecke" }));
 ok("Sortierung: voraus liegende Säulen zuerst",
-   r[r.length - 1].id === "p150", "letzte=" + r[r.length - 1].id);
-ok("Sortierung: unter den voraus liegenden die beste zuerst",
-   r[0].id === "burger", "erste=" + r[0].id);
+   r[r.length - 1].aheadM < 0, "letzte=" + r[r.length - 1].id);
+r = Rank.apply(mixed, { alongMe: 0, reverse: false, kmh: 100 },
+               fil({ order: "score" }));
+ok("nach Bewertung: beste zuerst", r[0].id === "p350", "erste=" + r[0].id);
 
-// Reihenfolge: nach Strecke vs. nach Bewertung
-const weit = charger("weit-gut", 800, { score: 95 });     // top, aber 500 km weiter
-const nah = charger("nah-mittel", 320, { score: 55 });    // mittelmäßig, gleich da
-const posBekannt = { alongMe: 300000, reverse: false, kmh: 100 };
-const basisFilter = { minPower: 150, maxDetour: 0, need: [], onlyAhead: true };
+// Vorschlags-Engine
+console.log("\nVorschläge");
+// Bei 100 km/h: km 100 → 60 min ETA (im Fenster), km 200 → 120 min (draußen)
+const sug1 = Rank.suggest(mixed, { alongMe: 0, reverse: false, kmh: 100 }, fil({}), {});
+ok("Hero liegt im 20-75-min-Fenster", sug1 && sug1.hero.etaMin >= 20 && sug1.hero.etaMin <= 75,
+   sug1 && String(sug1.hero.etaMin));
+ok("Hero ist p150 (einziger im Fenster)", sug1.hero.id === "p150", sug1.hero.id);
 
-r = Rank.apply([weit, nah], posBekannt, { ...basisFilter, order: "strecke" });
-ok("nach Strecke: die nächste Säule steht oben", r[0].id === "nah-mittel", "erste=" + r[0].id);
+// Alle im Fenster: der beste gewinnt
+const dicht = [
+  charger("a", 60, { score: 60, detour_min: 2 }),
+  charger("b", 80, { score: 85, detour_min: 3 }),
+  charger("c", 100, { score: 70, detour_min: 1 })
+];
+const sug2 = Rank.suggest(dicht, { alongMe: 0, reverse: false, kmh: 100 }, fil({}), {});
+ok("bester Vorschlags-Score gewinnt", sug2.hero.id === "b", sug2.hero.id);
+ok("zwei Alternativen", sug2.alts.length === 2);
 
-r = Rank.apply([weit, nah], posBekannt, { ...basisFilter, order: "score" });
-ok("nach Bewertung: die beste Säule steht oben", r[0].id === "weit-gut", "erste=" + r[0].id);
+// Gemerkter Stopp gewinnt
+const sug3 = Rank.suggest(dicht, { alongMe: 0, reverse: false, kmh: 100 }, fil({}), { c: true });
+ok("gemerkter Stopp schlägt besseren Score", sug3.hero.id === "c", sug3.hero.id);
 
-// Bereits passierte Säulen landen in beiden Ordnungen hinten
-const vorbei = charger("vorbei", 299, { score: 99 });
-r = Rank.apply([vorbei, nah], posBekannt, { ...basisFilter, onlyAhead: false, order: "strecke" });
-ok("nach Strecke: Passiertes ans Ende", r[r.length - 1].id === "vorbei");
-r = Rank.apply([vorbei, nah], posBekannt, { ...basisFilter, onlyAhead: false, order: "score" });
-ok("nach Bewertung: Passiertes trotz Top-Wertung ans Ende",
-   r[r.length - 1].id === "vorbei", "letzte=" + r[r.length - 1].id);
+// Umweg-Garantie: Hero mit >5 min Umweg zieht eine Direkt-Alternative nach
+const umwegig = [
+  charger("fern1", 60, { score: 95, detour_min: 9,
+    pois: [{ cat: "mall", name: "Outlet", dist_m: 100 }] }),
+  charger("fern2", 70, { score: 90, detour_min: 8 }),
+  charger("fern3", 75, { score: 88, detour_min: 8 }),
+  charger("direkt", 80, { score: 55, detour_min: 1 })
+];
+const sug4 = Rank.suggest(umwegig, { alongMe: 0, reverse: false, kmh: 100 }, fil({}), {});
+ok("Hero mit Umweg > 5 min: Direkt-Option unter den Alternativen",
+   sug4.hero.detour_min > 5 && sug4.alts.some(a => a.id === "direkt"),
+   JSON.stringify([sug4.hero.id].concat(sug4.alts.map(a=>a.id))));
 
-// Ohne Position ist die Streckenordnung wirkungslos
-r = Rank.apply([weit, nah], { alongMe: null, reverse: false, kmh: null },
-               { ...basisFilter, order: "strecke" });
-ok("ohne Position greift die Bewertungsordnung", r[0].id === "weit-gut", "erste=" + r[0].id);
+// Ohne Position: nächste voraus als Kandidaten, kein Absturz
+const sug5 = Rank.suggest(dicht, { alongMe: null, reverse: false, kmh: null }, fil({}), {});
+ok("Planmodus ohne Position liefert trotzdem einen Hero", !!sug5 && !!sug5.hero);
+
+// Nichts voraus → null
+const sug6 = Rank.suggest(dicht, { alongMe: 999000, reverse: false, kmh: 100 }, fil({}), {});
+ok("nichts voraus → null", sug6 === null, JSON.stringify(sug6));
 
 console.log("\n" + pass + " bestanden, " + fail + " fehlgeschlagen\n");
 process.exit(fail ? 1 : 0);

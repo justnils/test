@@ -37,29 +37,54 @@ Erfüllt keine Variante das, wird eine Route über Caen und Le Havre erzwungen.
 
 ## Bedienung
 
-| Element | Wirkung |
+Die App beantwortet die Frage **„Wo halten wir?"** — der Startzustand ist
+bereits ein Vorschlag, nicht eine Liste mit 132 Treffern.
+
+**Der Vorschlag (Hero):** Oben steht der nächste gute Stopp mit Ankunftszeit,
+Umweg und dem, was es dort gibt — plus zwei Alternativen. Hat der Vorschlag
+mehr als 5 Minuten Umweg, ist garantiert eine fast-umweglose Alternative
+dabei. Gemerkte Stopps (Stern ★) gewinnen die Vorschlagswahl fast immer.
+
+**Presets statt Filterwand:** Eine Zeile mit Stopp-Arten, die intern komplette
+Filterzustände setzen:
+
+| Preset | setzt |
 |---|---|
-| **GPS** | Standort verfolgen. Position, Restweg und Ankunftszeit aktualisieren sich laufend. |
-| **Richtung ⇄** | Zwischen Hinfahrt und Rückfahrt umschalten. Auf der Rückfahrt dreht sich die Zählrichtung — „noch 80 km" meint dann die Säulen Richtung Bretagne. |
-| **ab 150 / 200 / 300 kW** | Mindestladeleistung. |
-| **≤ 5 min / ≤ 10 min / Umweg egal** | Obergrenze für den Umweg. |
-| **🍔 🛍️ 👟 🛒 🚻** | Nur Säulen zeigen, bei denen es das auch gibt. Mehrere Filter gelten gleichzeitig. |
-| **nur voraus** | Säulen ausblenden, an denen du schon vorbei bist (mit 1,5 km Toleranz, damit die gerade passierte Ausfahrt nicht sofort verschwindet). |
-| **Navi starten** | Öffnet Google Maps mit der Ladesäule als Ziel. |
-| **Auf Karte** | Springt zur Säule auf der Karte. |
+| **Alles** | ab 150 kW, Umweg egal |
+| **⚡ Nur laden** | ab 200 kW, Umweg ≤ 5 min |
+| **🍔 Schnell essen** | Fast Food in ≤ 300 m Laufweite, Umweg ≤ 10 min |
+| **🧒 Mit Kindern** | Spielplatz ODER McDonald's/Burger King in ≤ 400 m, Umweg ≤ 10 min |
+| **🛍️ Shoppen** | Einkaufszentrum/Mode/Deko in ≤ 500 m, Umweg ≤ 15 min |
 
-Die Reihenfolge ist umschaltbar, weil zwei verschiedene Fragen dahinterstecken:
-**nach Strecke** beantwortet „was kommt als Nächstes" — das braucht man am
-Steuer. **nach Bewertung** beantwortet „wo lohnt es sich am meisten" — das
-plant man vorher. Solange keine Position bekannt ist, wird immer nach
-Bewertung sortiert; der Streckenknopf ist dann sichtbar deaktiviert. Die Zahl
-im farbigen Badge links auf jeder Karte ist die Bewertung, nicht die
-Platznummer — dieselbe Farbstufe wie die Kartenpins.
+Feineinstellung im **Filter-Sheet** (Knopf rechts): Leistung, Umweg,
+Umgebungs-Kategorien (eins reicht — ODER-Logik) mit Live-Trefferzahlen,
+Reihenfolge. Abweichungen vom Preset zeigt der Filterknopf als Zahl,
+das Preset bekommt einen Punkt; erneuter Tap aufs Preset setzt zurück.
 
-Die Bewertung (0–100) gewichtet vier Dinge: Ladeleistung 25 %, Umweg 35 %,
-Umfeld 30 %, Anzahl Ladepunkte 10 %. Ein Ladepark mit 350 kW direkt an der
-Autobahn mit Burger und WC landet damit vor einem 150-kW-Park mit 15 Minuten
-Umweg und nichts drumherum.
+**Planen / Fahren:** Zwei Modi für zwei Situationen. *Planen* (Küchentisch):
+große Karte, Vorschlag ab Start. *Fahren* (Beifahrersitz): Karte kollabiert,
+größere Ziele und Schrift, Reihenfolge fest „nach Strecke", nur was voraus
+liegt. Erkennt die App Fahrt auf der Route, schlägt sie den Moduswechsel vor.
+
+**Liste:** Nach Strecke sortiert, mit klebenden Regionsköpfen (Bretagne →
+Normandie → … → Aachen) zur Orientierung beim Scrollen. Tippen klappt
+Details auf (alle Orte in Laufweite, gruppiert). Fahrtrichtung ⇄ dreht
+alles um; gemerkte Stopps werden je Richtung getrennt gespeichert.
+
+**Je Ladepark:** Bewertung (0–100), Leistung, „in X min · an ≈ HH:MM ·
++Y min Umweg" (alle Umwege exakt geroutet), die relevantesten Orte mit
+Namen und Fußweg — je nach Preset zuerst Spielplätze, Fast Food oder
+Läden — und „Navi starten" (Google Maps). Sonntags markiert die App
+Orte, die laut OpenStreetMap sonntags zu sind.
+
+Die Gesamtbewertung gewichtet Leistung 22 %, Umweg 32 %, Umfeld 36 %,
+Ladepunkte 10 %. Das Umfeld besteht aus drei Profil-Scores (Familie,
+Shopping, Essen) — das beste Profil zählt am meisten, denn ein
+herausragender Familien-Stopp ohne Shopping ist ein guter Stopp, kein
+mittelmäßiger. Familien-Regeln aus der Eltern-Recherche: ohne
+Bewegungsangebot (Spielplatz, Bolzplatz, Park, Indoor-Spielhalle) in 600 m
+ist der Familien-Score hart gedeckelt — Picknicktische zählen nicht als
+Auslauf; Spielplatz + Essen + WC unter 400 m gibt den Gold-Bonus.
 
 ## Starten
 
@@ -120,8 +145,15 @@ python3 tools/build_dataset.py --min-kw 150 --exact-detours 25
 
 Das Skript holt die Route bei OSRM, sucht abschnittsweise per Bounding-Box
 alle Ladestationen im 8-km-Korridor, liest die Ladeleistung aus den
-OSM-Tags, filtert auf ≥ 150 kW, sammelt POIs im 1-km-Umkreis jeder Säule und
-rechnet Umweg und Bewertung aus.
+OSM-Tags, filtert auf ≥ 150 kW und sammelt POIs im 1-km-Umkreis jeder
+Säule: Essen, Spielplätze/Parks/Bolzplätze, Einkaufszentren, Mode-,
+Deko- und Spielwarenläden, Supermärkte, WC, Apotheken, Hotels. Marken
+(McDonald's, Burger King, KFC, Quick, Carrefour, Decathlon, …) werden
+über `brand:wikidata` erkannt — die IDs sind gegen die echten Daten des
+Korridors verifiziert, Namensabgleich ist nur Rückfall. Öffnungszeiten
+werden grob gedeutet (24/7? sonntags offen?), Raststätten-Lage über
+`highway=services/rest_area` erkannt. Die Regeln stehen testbar in
+`tools/poi_rules.py`.
 
 Rohe Overpass-Antworten landen in `tools/.cache/` (nicht eingecheckt), damit
 ein abgebrochener Lauf ohne erneute Netzlast weiterläuft. Falls ein

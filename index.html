@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ladeplaner Clohars-Carnoët → Aachen</title>
-<meta name="description" content="Schnellladesäulen ab 150 kW entlang der Nordroute über die Normandie — mit Umweg, Umgebung und Google-Maps-Navigation.">
+<meta name="description" content="Schnellladesäulen ab 150 kW entlang der Nordroute über die Normandie — mit Stopp-Vorschlägen, Umweg, Umgebung und Google-Maps-Navigation.">
 <meta name="theme-color" content="#0b1220">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -23,56 +23,48 @@
     <div class="trip-stats" id="trip-stats">Position wird ermittelt …</div>
   </div>
   <div class="topbar-actions">
-    <button type="button" id="btn-dir" class="icon-btn" title="Fahrtrichtung wechseln (Hin-/Rückfahrt)">
+    <button type="button" id="btn-dir" class="icon-btn" title="Fahrtrichtung wechseln (Hin-/Rückfahrt)" aria-label="Fahrtrichtung wechseln">
       <span aria-hidden="true">⇄</span><span class="icon-btn-label">Richtung</span>
     </button>
-    <button type="button" id="btn-locate" class="icon-btn" title="Eigene Position bestimmen">
+    <button type="button" id="btn-locate" class="icon-btn" title="Eigene Position bestimmen" aria-label="Eigene Position bestimmen">
       <span aria-hidden="true">◎</span><span class="icon-btn-label">GPS</span>
     </button>
   </div>
 </header>
 
+<div class="mode-row" role="tablist" aria-label="Modus">
+  <button type="button" id="mode-plan" class="mode-tab is-on" role="tab" aria-selected="true">Planen</button>
+  <button type="button" id="mode-fahrt" class="mode-tab" role="tab" aria-selected="false">Fahren</button>
+</div>
+
 <div id="map" role="region" aria-label="Karte mit Route und Ladesäulen"></div>
 
-<section class="filters" aria-label="Filter">
-  <div class="filter-row">
-    <div class="chipset" role="group" aria-label="Mindestleistung">
-      <button type="button" class="chip is-on" data-power="150">ab 150 kW</button>
-      <button type="button" class="chip" data-power="200">ab 200 kW</button>
-      <button type="button" class="chip" data-power="300">ab 300 kW</button>
-    </div>
-    <div class="chipset" role="group" aria-label="Maximaler Umweg">
-      <button type="button" class="chip" data-detour="5">≤ 5 min</button>
-      <button type="button" class="chip" data-detour="10">≤ 10 min</button>
-      <button type="button" class="chip is-on" data-detour="0">Umweg egal</button>
-    </div>
+<!-- Der Vorschlag: die Antwort auf "Wo halten wir?" -->
+<section id="hero" class="hero" aria-label="Stopp-Vorschlag" hidden></section>
+
+<!-- Eine sichtbare Filterzeile: Presets + Filterknopf. Der Rest wohnt im Sheet. -->
+<nav class="preset-row" aria-label="Filter">
+  <div class="preset-chips" id="preset-chips" role="radiogroup" aria-label="Stopp-Art">
+    <button type="button" class="chip is-on" data-preset="alles" role="radio" aria-checked="true">Alles</button>
+    <button type="button" class="chip" data-preset="laden" role="radio" aria-checked="false">⚡ Nur laden</button>
+    <button type="button" class="chip" data-preset="essen" role="radio" aria-checked="false">🍔 Schnell essen</button>
+    <button type="button" class="chip" data-preset="kinder" role="radio" aria-checked="false">🧒 Mit Kindern</button>
+    <button type="button" class="chip" data-preset="shoppen" role="radio" aria-checked="false">🛍️ Shoppen</button>
   </div>
-  <div class="filter-row">
-    <div class="chipset" role="group" aria-label="Umgebung">
-      <button type="button" class="chip" data-need="burger">🍔 Burger</button>
-      <button type="button" class="chip" data-need="mall">🛍️ Mall</button>
-      <button type="button" class="chip" data-need="shoes">👟 Schuhe</button>
-      <button type="button" class="chip" data-need="supermarket">🛒 Super&shy;markt</button>
-      <button type="button" class="chip" data-need="toilets">🚻 WC</button>
-    </div>
-    <div class="chipset" role="group" aria-label="Reihenfolge">
-      <button type="button" class="chip is-on" data-order="strecke">nach Strecke</button>
-      <button type="button" class="chip" data-order="score">nach Bewertung</button>
-    </div>
-    <label class="switch">
-      <input type="checkbox" id="only-ahead" checked>
-      <span>nur voraus</span>
-    </label>
-  </div>
-</section>
+  <button type="button" id="btn-filter" class="chip chip-filter" aria-haspopup="dialog">Filter</button>
+</nav>
 
 <main>
   <div class="list-head">
-    <h2 id="list-title">Ladesäulen</h2>
-    <span class="hint" id="list-count"></span>
+    <h2 id="list-title">Ladeparks</h2>
+    <span class="hint" id="list-count" aria-live="polite"></span>
   </div>
   <ol id="list" class="list"></ol>
-  <p id="empty" class="empty" hidden>Keine Ladesäule passt zu den Filtern. Nimm den Umweg-Filter zurück oder senke die Mindestleistung.</p>
+  <div id="empty" class="empty" hidden>
+    <p><strong>Keine Ladesäule passt zu den Filtern.</strong></p>
+    <p id="empty-why"></p>
+    <button type="button" id="empty-reset" class="btn">Filter zurücksetzen</button>
+  </div>
 </main>
 
 <footer class="foot">
@@ -80,6 +72,55 @@
   <p class="small">Ladesäulen &amp; Umgebung: OpenStreetMap (ODbL) · Routing: OSRM ·
      Leistungsangaben stammen aus OSM und können veraltet sein — vor der Fahrt gegenprüfen.</p>
 </footer>
+
+<!-- Filter-Sheet: alles Feineinstellbare, von unten -->
+<div id="sheet-backdrop" class="sheet-backdrop" hidden></div>
+<div id="filter-sheet" class="filter-sheet" role="dialog" aria-modal="true" aria-label="Filter" hidden>
+  <div class="sheet-grip" aria-hidden="true"></div>
+
+  <div class="sheet-section">
+    <h3>Mindestleistung</h3>
+    <div class="seg" role="radiogroup" aria-label="Mindestleistung">
+      <button type="button" class="seg-btn" data-power="150">150 kW</button>
+      <button type="button" class="seg-btn" data-power="200">200 kW</button>
+      <button type="button" class="seg-btn" data-power="300">300 kW</button>
+    </div>
+  </div>
+
+  <div class="sheet-section">
+    <h3>Maximaler Umweg</h3>
+    <div class="seg" role="radiogroup" aria-label="Maximaler Umweg">
+      <button type="button" class="seg-btn" data-detour="5">5 min</button>
+      <button type="button" class="seg-btn" data-detour="10">10 min</button>
+      <button type="button" class="seg-btn" data-detour="15">15 min</button>
+      <button type="button" class="seg-btn" data-detour="0">egal</button>
+    </div>
+  </div>
+
+  <div class="sheet-section">
+    <h3>Das muss es geben <span class="hint">(eins reicht)</span></h3>
+    <div class="chipset" id="need-chips"></div>
+  </div>
+
+  <div class="sheet-section">
+    <h3>Reihenfolge</h3>
+    <div class="seg" role="radiogroup" aria-label="Reihenfolge">
+      <button type="button" class="seg-btn" data-order="strecke">nach Strecke</button>
+      <button type="button" class="seg-btn" data-order="score">nach Bewertung</button>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="only-ahead" checked>
+      <span>nur Ladeparks voraus zeigen</span>
+    </label>
+  </div>
+
+  <div class="sheet-footer">
+    <button type="button" id="sheet-reset" class="btn">Zurücksetzen</button>
+    <button type="button" id="sheet-apply" class="btn btn-nav">Anzeigen</button>
+  </div>
+</div>
+
+<button type="button" id="fab-top" class="fab" hidden aria-label="Nach oben zum Vorschlag">↑</button>
 
 <div id="sheet" class="sheet" hidden aria-live="polite"></div>
 
