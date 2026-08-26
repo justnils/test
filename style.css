@@ -1,0 +1,141 @@
+:root {
+  --bg: #f4f6fb;
+  --bg-accent: #dfe7ff;
+  --surface: #ffffff;
+  --text: #16192b;
+  --muted: #5c6180;
+  --border: #e0e3ef;
+  --primary: #3b5bfd;
+  --primary-text: #ffffff;
+}
+
+[data-theme="dark"] {
+  --bg: #0e1020;
+  --bg-accent: #1a1f3c;
+  --surface: #171a2e;
+  --text: #f1f3fb;
+  --muted: #a2a8c8;
+  --border: #2a2f4d;
+  --primary: #6d86ff;
+  --primary-text: #0e1020;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 2rem 1rem;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at 20% 0%, var(--bg-accent), var(--bg) 60%);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.card {
+  width: min(100%, 32rem);
+  padding: 2.5rem 2rem;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  box-shadow: 0 20px 45px rgba(20, 25, 60, 0.12);
+}
+
+.wave {
+  margin: 0;
+  font-size: 3.5rem;
+  line-height: 1;
+  animation: wave 2.4s ease-in-out infinite;
+  transform-origin: 70% 70%;
+}
+
+@keyframes wave {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  10%, 30% { transform: rotate(14deg); }
+  20%, 40% { transform: rotate(-8deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave { animation: none; }
+}
+
+h1 {
+  margin: 1rem 0 0.5rem;
+  font-size: clamp(2rem, 6vw, 2.75rem);
+}
+
+.subtitle {
+  margin: 0 0 2rem;
+  color: var(--muted);
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-align: left;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+input,
+button {
+  font: inherit;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border);
+  padding: 0.65rem 1rem;
+}
+
+input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+button {
+  cursor: pointer;
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: transparent;
+  font-weight: 600;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+button:hover { opacity: 0.9; }
+button:active { transform: translateY(1px); }
+
+.time {
+  margin: 1.75rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+footer button {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
