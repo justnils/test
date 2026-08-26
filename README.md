@@ -72,8 +72,15 @@ python3 -m http.server 8000
 # dann http://localhost:8000 aufrufen
 ```
 
-Auf dem Handy: über GitHub Pages oder einen beliebigen Static-Host
-veröffentlichen und dort „Zum Startbildschirm hinzufügen" wählen.
+Auf dem Handy: über einen beliebigen Static-Host veröffentlichen und dort
+„Zum Startbildschirm hinzufügen" wählen.
+
+**Vercel:** `vercel.json` liegt bei und setzt die Cache-Header richtig — der
+Service Worker ungecacht, die Ladesäulendaten mit Revalidierung, Leaflet
+langlebig. Es gibt keinen Build-Schritt; Vercel serviert die Dateien direkt.
+Damit Vercel das Repo verknüpfen kann, muss das Vercel-Konto einmalig eine
+GitHub-Login-Connection haben (Vercel → Settings → Login Connections). Die
+Produktions-URL bedient immer den Standard-Branch des Repos.
 
 **Offline:** Es gibt keine CDN-Abhängigkeit — Leaflet liegt unter
 `vendor/leaflet/` mit im Repo, die Ladesäulendaten unter `data/`. Zusammen mit
