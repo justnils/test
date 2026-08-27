@@ -52,25 +52,27 @@
 
   var SONNTAG = new Date().getDay() === 0;
 
-  /* Abschnitte der Strecke (km ab Clohars-Carnoët). Als Sticky-Header geben
-     sie der Liste beim Scrollen Orientierung: man sieht immer, in welcher
-     Gegend man gerade sucht. */
-  var REGIONS = [
-    { bis: 125, name: "Bretagne", sub: "N165 Lorient – Vannes" },
-    { bis: 250, name: "Rennes & Umland", sub: "Rennes – A84" },
-    { bis: 430, name: "Normandie", sub: "Caen – Pont de Normandie – Honfleur" },
-    { bis: 620, name: "Seine & Picardie", sub: "A29 Richtung Amiens" },
-    { bis: 770, name: "Hauts-de-France", sub: "A2 Saint-Quentin – Valenciennes" },
-    { bis: 905, name: "Belgien", sub: "Mons – Charleroi – Namur – Lüttich" },
-    { bis: 9999, name: "Aachen & Umgebung", sub: "E40 – Ziel" }
+  /* Abschnitte der Strecke fuer die Sticky-Koepfe. Kommt normalerweise aus
+     route.json (vom Generator auf die echte Route projiziert); die Konstante
+     ist nur Rueckfall fuer alte Datenstaende. */
+  var REGIONS_FALLBACK = [
+    { bis_km: 125, name: "Bretagne", sub: "N165 Lorient – Vannes" },
+    { bis_km: 250, name: "Rennes & A84", sub: "Rennes – Avranches" },
+    { bis_km: 430, name: "Normandie", sub: "Caen – Pont de Normandie" },
+    { bis_km: 560, name: "Côte d'Albâtre", sub: "Saint-Valery · Übernachtung" },
+    { bis_km: 700, name: "Picardie", sub: "A29 Richtung Amiens" },
+    { bis_km: 810, name: "Hauts-de-France", sub: "A2 Valenciennes" },
+    { bis_km: 950, name: "Belgien", sub: "Mons – Namur – Lüttich" },
+    { bis_km: 9999, name: "Aachen & Umgebung", sub: "E40 – Ziel" }
   ];
+  var regions = REGIONS_FALLBACK;
 
   function regionFor(routeM) {
     var km = routeM / 1000;
-    for (var i = 0; i < REGIONS.length; i++) {
-      if (km <= REGIONS[i].bis) { return REGIONS[i]; }
+    for (var i = 0; i < regions.length; i++) {
+      if (km <= regions[i].bis_km) { return regions[i]; }
     }
-    return REGIONS[REGIONS.length - 1];
+    return regions[regions.length - 1];
   }
 
   // ------------------------------------------------------------- Speicher
@@ -255,9 +257,6 @@
 
   function render() {
     var wirksam = filters;
-    if (state.alongMe == null && filters.order === "strecke") {
-      wirksam = Object.assign({}, filters, { order: "score", onlyAhead: false });
-    }
     var list = Rank.apply(state.chargers, state, wirksam);
     if (wirksam.order === "strecke") {
       var html = [], lastRegion = null;
@@ -611,12 +610,20 @@
       state.routePoints = chosen.points;
       state.cum = Geo.cumulative(chosen.points);
       state.chargers = res.chargers.chargers;
+      if (res.route.regions && res.route.regions.length) {
+        regions = res.route.regions;
+      }
       loadMerked();
 
       MapView.drawRoutes(res.route);
+      var etappen = (chosen.legs && chosen.legs.length === 2)
+        ? " · Etappe 1: " + Math.round(chosen.legs[0].km) + " km bis Saint-Valery, " +
+          "Etappe 2: " + Math.round(chosen.legs[1].km) + " km bis Aachen"
+        : "";
       el.dataNote.textContent = state.chargers.length + " Schnellladeparks ab " +
-        res.chargers.min_kw + " kW entlang der " + chosen.name + " (" +
-        chosen.distance_km.toFixed(0) + " km) · Stand " + res.chargers.generated +
+        res.chargers.min_kw + " kW · " + chosen.name + " (" +
+        chosen.distance_km.toFixed(0) + " km)" + etappen +
+        " · Stand " + res.chargers.generated +
         (res.fromCache ? " · offline aus dem Zwischenspeicher" : "") +
         " · App " + (self.APP_VERSION || "?");
 

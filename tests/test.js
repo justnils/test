@@ -227,6 +227,16 @@ ok("Hero mit Umweg > 5 min: Direkt-Option unter den Alternativen",
 const sug5 = Rank.suggest(dicht, { alongMe: null, reverse: false, kmh: null }, fil({}), {});
 ok("Planmodus ohne Position liefert trotzdem einen Hero", !!sug5 && !!sug5.hero);
 
+// Planmodus: Streckenordnung ohne Position = km ab Start, Richtung zählt
+r = Rank.apply(dicht, { alongMe: null, reverse: false, kmh: null },
+               fil({ order: "strecke" }));
+ok("ohne Position: Hinfahrt sortiert km aufsteigend", r[0].id === "a" && r[2].id === "c",
+   r.map(x => x.id).join(","));
+r = Rank.apply(dicht, { alongMe: null, reverse: true, kmh: null },
+               fil({ order: "strecke" }));
+ok("ohne Position: Rückfahrt sortiert km absteigend", r[0].id === "c" && r[2].id === "a",
+   r.map(x => x.id).join(","));
+
 // Nichts voraus → null
 const sug6 = Rank.suggest(dicht, { alongMe: 999000, reverse: false, kmh: 100 }, fil({}), {});
 ok("nichts voraus → null", sug6 === null, JSON.stringify(sug6));

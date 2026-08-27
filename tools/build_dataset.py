@@ -32,6 +32,25 @@ DATA = os.path.join(ROOT, "data")
 
 START = (47.7936, -3.5486)   # 15 Rue des Ajoncs, 29360 Clohars-Carnoet
 ZIEL = (50.7753, 6.0839)     # Aachen
+
+# Zwischenuebernachtung: 5 Cour de la Plage, Saint-Valery-en-Caux.
+# Teilt die Fahrt in zwei fast gleiche Etappen (~500/486 km).
+STOPP = {"pos": (49.8698, 0.7144),
+         "name": "Übernachtung Saint-Valery-en-Caux (5 Cour de la Plage)"}
+
+# Regionsgrenzen fuer die Listen-Abschnittskoepfe der App. Die km-Werte
+# werden beim Bauen auf die tatsaechliche Route projiziert — verschiebt
+# sich die Route, wandern die Koepfe automatisch mit.
+REGION_ANKER = [
+    ("Bretagne", "N165 Lorient – Vannes", (48.05, -1.90)),
+    ("Rennes & A84", "Rennes – Avranches", (48.69, -1.37)),
+    ("Normandie", "Caen – Pont de Normandie", (49.43, 0.27)),
+    ("Côte d'Albâtre", "Yvetot – Saint-Valery · Übernachtung", (49.63, 0.92)),
+    ("Picardie", "A29 Richtung Amiens – Saint-Quentin", (49.85, 3.29)),
+    ("Hauts-de-France", "A2 Valenciennes", (50.38, 3.62)),
+    ("Belgien", "Mons – Charleroi – Namur – Lüttich", (50.66, 5.85)),
+    ("Aachen & Umgebung", "E40 – Ziel", None),
+]
 START_NAME = "Clohars-Carnoët (15 Rue des Ajoncs)"
 ZIEL_NAME = "Aachen"
 
@@ -184,25 +203,49 @@ def overpass(query):
 # ---------------------------------------------------------------- Routing
 
 def fetch_routes():
-    """Haupt- und Alternativroute von OSRM holen."""
-    coords = f"{START[1]},{START[0]};{ZIEL[1]},{ZIEL[0]}"
-    url = f"{OSRM}/route/v1/driving/{coords}?overview=full&alternatives=true&geometries=geojson"
+    """Route mit Zwischenstopp von OSRM holen.
+
+    Mit festem Via-Punkt sind OSRM-Alternativen nicht sinnvoll — der Stopp
+    IST die Routenwahl. Die Nordroute ergibt sich zwangslaeufig, wird aber
+    weiter gegen die Referenzpunkte geprueft (Sicherheitsnetz gegen einen
+    OSRM-Ausreisser).
+    """
+    wp = [START, STOPP["pos"], ZIEL]
+    coords = ";".join(f"{lon},{lat}" for lat, lon in wp)
+    url = f"{OSRM}/route/v1/driving/{coords}?overview=full&geometries=geojson"
     d = http_get(url)
     if d.get("code") != "Ok":
         raise RuntimeError(f"OSRM: {d}")
-    routes = []
-    for i, r in enumerate(d["routes"]):
-        pts = [(lat, lon) for lon, lat in r["geometry"]["coordinates"]]
-        routes.append({
-            "id": f"route{i}",
-            "distance_m": r["distance"],
-            "duration_s": r["duration"],
-            "points": pts,
-        })
-    routes.sort(key=lambda r: r["distance_m"])
-    for r in routes:
-        classify_route(r)
-    return routes
+    r = d["routes"][0]
+    route = {
+        "id": "route-via",
+        "distance_m": r["distance"],
+        "duration_s": r["duration"],
+        "legs": [{"distance_m": leg["distance"], "duration_s": leg["duration"]}
+                 for leg in r["legs"]],
+        "points": [(lat, lon) for lon, lat in r["geometry"]["coordinates"]],
+    }
+    classify_route(route)
+    if not route["ist_nordroute"]:
+        print("  ! Warnung: Route mit Stopp erfüllt die Nord-Kriterien nicht "
+              f"(Paris-Abstand {route['paris_m']/1000:.0f} km) — bitte prüfen",
+              file=sys.stderr)
+    route["name"] = "Nordroute mit Übernachtung Saint-Valery-en-Caux"
+    return [route]
+
+
+def build_regions(points, cum):
+    """REGION_ANKER auf die Route projizieren -> [{bis_km, name, sub}]."""
+    out = []
+    for name, sub, anker in REGION_ANKER:
+        if anker is None:
+            bis = cum[-1] / 1000 + 1
+        else:
+            _, along, _ = project_on_route(anker, points, cum)
+            bis = along / 1000
+        out.append({"bis_km": round(bis, 1), "name": name, "sub": sub})
+    out.sort(key=lambda r: r["bis_km"])
+    return out
 
 
 def min_dist_to_route(point, points):
@@ -400,6 +443,67 @@ def fetch_pois(chargers):
         time.sleep(0.6)
     print(f"  {len(found)} POIs gesamt", file=sys.stderr)
     return found
+
+
+def find_gaps(route_kms, min_gap_km):
+    """Abschnitte ohne Ladepark: [(von_km, bis_km), ...] fuer Luecken
+    groesser min_gap_km. Ein- und Ausstieg der Strecke zaehlen mit."""
+    grenzen = [0.0] + sorted(route_kms)
+    out = []
+    for i in range(1, len(grenzen)):
+        if grenzen[i] - grenzen[i - 1] >= min_gap_km:
+            out.append((grenzen[i - 1], grenzen[i]))
+    return out
+
+
+GAP_MIN_KM = 45        # ab dieser Luecke wird nachverdichtet
+GAP_PAD_M = 15000      # ... mit weiterem Suchradius als der Korridor
+
+
+def fill_gaps(chargers, route_points, cum, min_kw):
+    """In grossen Luecken mit weitem Radius nachsuchen.
+
+    Wer dort laden muss, nimmt auch 15 km Abstand zur Autobahn in Kauf —
+    besser ein Umweg als gar keine Option. Der Umweg wird spaeter ohnehin
+    exakt geroutet.
+    """
+    kms = [c["route_m"] / 1000 for c in chargers]
+    gaps = find_gaps(kms, GAP_MIN_KM)
+    if not gaps:
+        return chargers
+    bekannte = {c["id"] for c in chargers}
+    print(f"  {len(gaps)} Lücken ≥ {GAP_MIN_KM} km — Nachsuche mit "
+          f"{GAP_PAD_M/1000:.0f} km Radius", file=sys.stderr)
+    for von, bis in gaps:
+        a = point_at_distance(route_points, cum, von * 1000)
+        b = point_at_distance(route_points, cum, bis * 1000)
+        teil = [a] + [point_at_distance(route_points, cum, m * 1000)
+                      for m in range(int(von) + 5, int(bis), 10)] + [b]
+        lats = [p[0] for p in teil]; lons = [p[1] for p in teil]
+        mid = (min(lats) + max(lats)) / 2
+        dlat = GAP_PAD_M / 111320.0
+        dlon = GAP_PAD_M / (111320.0 * max(0.2, math.cos(math.radians(mid))))
+        q = (f"[out:json][timeout:120];"
+             f"nwr[amenity=charging_station]"
+             f"({min(lats)-dlat:.4f},{min(lons)-dlon:.4f},"
+             f"{max(lats)+dlat:.4f},{max(lons)+dlon:.4f});out center tags;")
+        print(f"  Lücke km {von:.0f}–{bis:.0f}", file=sys.stderr)
+        neu = 0
+        for el in overpass(q)["elements"]:
+            eid = f"{el['type']}/{el['id']}"
+            if eid in bekannte:
+                continue
+            c = build_charger(el, route_points, cum, min_kw)
+            # nur was wirklich IN der Luecke liegt, sonst wandert die
+            # Nachsuche in die Nachbarabschnitte
+            if c and von - 3 <= c["route_m"] / 1000 <= bis + 3:
+                chargers.append(c)
+                bekannte.add(eid)
+                neu += 1
+        print(f"    +{neu} Ladeparks", file=sys.stderr)
+        time.sleep(1.0)
+    chargers.sort(key=lambda c: c["route_m"])
+    return chargers
 
 
 # ---------------------------------------------------------------- Umweg
@@ -729,9 +833,7 @@ def main():
 
     print("1/5 Route holen …", file=sys.stderr)
     routes = fetch_routes()
-    main_route = pick_nordroute(routes)
-    if main_route not in routes:
-        routes.insert(0, main_route)
+    main_route = routes[0]
     pts, cum = main_route["points"], cumulative(main_route["points"])
     print(f"  Hauptroute {main_route['distance_m']/1000:.0f} km, "
           f"{main_route['duration_s']/3600:.1f} h, {len(pts)} Punkte", file=sys.stderr)
@@ -747,6 +849,8 @@ def main():
             chargers.append(c)
     chargers.sort(key=lambda c: c["route_m"])
     print(f"  {len(chargers)} Stationen mit ≥{args.min_kw:.0f} kW", file=sys.stderr)
+    chargers = fill_gaps(chargers, pts, cum, args.min_kw)
+    print(f"  {len(chargers)} Stationen nach Lückenschluss", file=sys.stderr)
 
     print("4/5 Umgebung (POIs) …", file=sys.stderr)
     attach_pois(chargers, fetch_pois(chargers))
@@ -771,13 +875,20 @@ def main():
     for c in chargers:
         c["score"] = score(c)
 
+    _, stopp_along, _ = project_on_route(STOPP["pos"], pts, cum)
     route_out = {
         "start": {"pos": list(START), "name": START_NAME},
         "ziel": {"pos": list(ZIEL), "name": ZIEL_NAME},
+        "stopp": {"pos": list(STOPP["pos"]), "name": STOPP["name"],
+                  "route_km": round(stopp_along / 1000, 1)},
+        "regions": build_regions(pts, cum),
         "gewaehlt": main_route["id"],
         "routes": [{
             "id": r["id"],
             "name": r["name"],
+            "legs": [{"km": round(l["distance_m"] / 1000, 1),
+                      "h": round(l["duration_s"] / 3600, 2)}
+                     for l in r.get("legs", [])],
             "ist_nordroute": r["ist_nordroute"],
             "gewaehlt": r["id"] == main_route["id"],
             "abstand_paris_km": round(r["paris_m"] / 1000),

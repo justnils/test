@@ -801,3 +801,17 @@ body.mode-fahrt .hero-primary { font-size: 1.2rem; }
 }
 
 .map-hint.is-visible { opacity: 1; }
+
+/* Übernachtungs-Marker auf der Karte */
+.stopp-pin {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  background: #7c5cff;
+  border: 2px solid #0b1220;
+  font-size: 17px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+}

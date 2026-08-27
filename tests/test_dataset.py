@@ -137,6 +137,15 @@ ok("Raststätte gibt Bonus",
 ok("Bewertung bleibt im Bereich 0-100",
    all(0 <= bd.score(x) <= 100 for x in (basis, top, {**basis, "stalls": 999})))
 
+print("\nLückensuche")
+g = bd.find_gaps([10, 30, 120, 130, 200], 45)
+ok("findet die 90-km-Lücke", (30.0, 120.0) in [(a, b) for a, b in g], str(g))
+ok("findet die 70-km-Lücke am Ende", any(abs(a-130)<0.1 and abs(b-200)<0.1 for a,b in g), str(g))
+ok("kleine Abstände sind keine Lücke", not any(b-a < 45 for a, b in g))
+ok("Strecke ab km 0 zählt mit", bd.find_gaps([60, 70], 45)[0][0] == 0.0,
+   str(bd.find_gaps([60, 70], 45)))
+ok("keine Lücken → leer", bd.find_gaps([10, 40, 80, 120], 45) == [])
+
 print("\nNordroute statt Paris")
 nord = {"id": "n", "distance_m": 937600, "duration_s": 36600,
         "points": [(47.79, -3.55), (48.69, -1.37), (49.18, -0.37),

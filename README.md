@@ -23,7 +23,11 @@ Für Bretagne → Aachen gibt es zwei sinnvolle Varianten. Gewählt ist die
 > A29 Pont de Normandie → **Amiens** → A2 Valenciennes → Belgien (Mons,
 > Charleroi, Namur) → **Lüttich** → E40 → **Aachen**
 
-**rund 938 km, gut 10 Stunden reine Fahrzeit.**
+Mit **Zwischenübernachtung in Saint-Valery-en-Caux** (5 Cour de la Plage,
+Alabasterküste): bei Yvetot geht es von der A29 hoch ans Meer und morgens
+zurück. Das teilt die Fahrt in zwei fast gleiche Etappen —
+**Etappe 1: 499 km bis Saint-Valery, Etappe 2: 486 km bis Aachen,
+zusammen rund 985 km.**
 
 Die Alternative über Paris und Reims (rund 990 km) ist absichtlich **nicht**
 gewählt — sie ist länger und führt mitten durch den Pariser Ballungsraum. Sie

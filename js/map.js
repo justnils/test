@@ -102,6 +102,14 @@ window.MapView = (function () {
       .bindPopup("<b>Start</b><br>" + routeData.start.name);
     L.marker(routeData.ziel.pos, { title: routeData.ziel.name }).addTo(map)
       .bindPopup("<b>Ziel</b><br>" + routeData.ziel.name);
+    if (routeData.stopp) {
+      L.marker(routeData.stopp.pos, {
+        icon: L.divIcon({ className: "", iconSize: [34, 34],
+          html: '<div class="stopp-pin" title="' + Fmt.esc(routeData.stopp.name) + '">🛏</div>' }),
+        zIndexOffset: 900
+      }).addTo(map).bindPopup("<b>Übernachtung</b><br>" + Fmt.esc(routeData.stopp.name) +
+        "<br>bei km " + Math.round(routeData.stopp.route_km));
+    }
     if (chosen) { map.fitBounds(chosen.getBounds(), { padding: [24, 24] }); }
   }
 

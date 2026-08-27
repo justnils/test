@@ -111,14 +111,23 @@ window.Rank = (function () {
   }
 
   function sort(list, state, order) {
-    var byRoute = order === "strecke" && state.alongMe != null;
+    var byRoute = order === "strecke";
+    var dir = state.reverse ? -1 : 1;
     return list.slice().sort(function (a, b) {
       if (state.alongMe != null && a.aheadM != null && b.aheadM != null) {
         var aNear = a.aheadM >= 0, bNear = b.aheadM >= 0;
         if (aNear !== bNear) { return aNear ? -1 : 1; }
       }
-      if (byRoute && a.aheadM != null && b.aheadM != null && a.aheadM !== b.aheadM) {
-        return a.aheadM - b.aheadM;
+      if (byRoute) {
+        // Mit Position: was naeher voraus liegt zuerst. Ohne Position
+        // (Kuechentisch-Planung): Streckenkilometer ab Start, auf der
+        // Rueckfahrt rueckwaerts.
+        if (a.aheadM != null && b.aheadM != null && a.aheadM !== b.aheadM) {
+          return a.aheadM - b.aheadM;
+        }
+        if (a.aheadM == null && a.route_m !== b.route_m) {
+          return (a.route_m - b.route_m) * dir;
+        }
       }
       if (b.score !== a.score) { return b.score - a.score; }
       return (a.aheadM || 0) - (b.aheadM || 0);
