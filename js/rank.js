@@ -111,6 +111,19 @@ window.Rank = (function () {
   }
 
   function sort(list, state, order) {
+    if (order === "umgebung") {
+      // Ranking nach Attraktivitaet der Umgebung; Passiertes ans Ende.
+      return list.slice().sort(function (a, b) {
+        if (state.alongMe != null && a.aheadM != null && b.aheadM != null) {
+          var aN = a.aheadM >= 0, bN = b.aheadM >= 0;
+          if (aN !== bN) { return aN ? -1 : 1; }
+        }
+        if ((b.s_umfeld || 0) !== (a.s_umfeld || 0)) {
+          return (b.s_umfeld || 0) - (a.s_umfeld || 0);
+        }
+        return b.score - a.score;
+      });
+    }
     var byRoute = order === "strecke";
     var dir = state.reverse ? -1 : 1;
     return list.slice().sort(function (a, b) {

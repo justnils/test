@@ -237,6 +237,22 @@ r = Rank.apply(dicht, { alongMe: null, reverse: true, kmh: null },
 ok("ohne Position: Rückfahrt sortiert km absteigend", r[0].id === "c" && r[2].id === "a",
    r.map(x => x.id).join(","));
 
+// Umgebungs-Ranking
+const umf = [
+  charger("kahl", 60, { score: 80, s_umfeld: 10 }),
+  charger("gruen", 80, { score: 50, s_umfeld: 90 }),
+  charger("mittel", 100, { score: 70, s_umfeld: 50 })
+];
+r = Rank.apply(umf, { alongMe: 0, reverse: false, kmh: 100 },
+               fil({ order: "umgebung" }));
+ok("Umgebungs-Ranking: grünster Stopp zuerst", r[0].id === "gruen" && r[2].id === "kahl",
+   r.map(x => x.id).join(","));
+const umf2 = [charger("vorbei", 10, { score: 40, s_umfeld: 95 })].concat(umf);
+r = Rank.apply(umf2, { alongMe: 50000, reverse: false, kmh: 100 },
+               fil({ order: "umgebung", onlyAhead: false }));
+ok("Umgebungs-Ranking: Passiertes trotzdem ans Ende",
+   r[r.length - 1].id === "vorbei", r.map(x => x.id).join(","));
+
 // Nichts voraus → null
 const sug6 = Rank.suggest(dicht, { alongMe: 999000, reverse: false, kmh: 100 }, fil({}), {});
 ok("nichts voraus → null", sug6 === null, JSON.stringify(sug6));

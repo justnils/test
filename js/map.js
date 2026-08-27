@@ -73,6 +73,11 @@ window.MapView = (function () {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
       }).addTo(map);
       map.setView([49.3, 1.5], 6);
+      var legende = document.createElement("div");
+      legende.className = "map-legende";
+      legende.innerHTML = 'Umgebung: <i class="lg lg-top"></i>viel ' +
+        '<i class="lg lg-mid"></i>etwas <i class="lg lg-low"></i>wenig';
+      map.getContainer().appendChild(legende);
       ready = true;
     } catch (e) {
       ready = false;
@@ -113,9 +118,13 @@ window.MapView = (function () {
     if (chosen) { map.fitBounds(chosen.getBounds(), { padding: [24, 24] }); }
   }
 
-  function pinClass(score) {
-    if (score >= 62) { return "pin pin-top"; }
-    if (score >= 42) { return "pin pin-mid"; }
+  /* Pinfarbe zeigt die Attraktivitaet der UMGEBUNG (nicht die
+     Gesamtbewertung): gruen = viel zu erleben, gelb = etwas, grau = kahl.
+     So sieht man auf der Karte sofort, wo sich Anhalten lohnt. */
+  function pinClass(c) {
+    var v = c.s_umfeld || 0;
+    if (v >= 62) { return "pin pin-top"; }
+    if (v >= 42) { return "pin pin-mid"; }
     return "pin pin-low";
   }
 
@@ -126,7 +135,7 @@ window.MapView = (function () {
     list.forEach(function (c, i) {
       var icon = L.divIcon({
         className: "",
-        html: '<div class="' + pinClass(c.score) + (c.id === activeId ? " is-active" : "") +
+        html: '<div class="' + pinClass(c) + (c.id === activeId ? " is-active" : "") +
               '">' + (i + 1) + "</div>",
         iconSize: [30, 30]
       });
@@ -134,7 +143,8 @@ window.MapView = (function () {
       m.on("click", function () { onSelect(c.id); });
       m.bindPopup(
         "<b>" + Fmt.esc(c.name) + "</b><br>" +
-        c.power_kw + " kW · Umweg +" + c.detour_min + " min<br>" +
+        c.power_kw + " kW · Umweg +" + c.detour_min + " min · Umgebung " +
+        (c.s_umfeld || 0) + "/100<br>" +
         (c.pois.length ? c.pois.slice(0, 4).map(function (p) {
           return Fmt.icon(p.cat) + " " + Fmt.esc(p.name);
         }).join("<br>") : "<i>nichts in Laufweite getaggt</i>")

@@ -682,6 +682,21 @@ def score_essen(pois):
     return round(min(100.0, pts))
 
 
+def score_umfeld(charger):
+    """0-100: Wie attraktiv ist die Umgebung dieses Stopps insgesamt?
+
+    Das beste Profil zaehlt am meisten — ein Traum-Familienstopp ohne
+    Shopping ist attraktiv, kein Mittelmass. Raststaetten-Lage gibt einen
+    kleinen Bonus (WC und kurze Wege garantiert).
+    """
+    profile = [charger.get("s_familie", 0), charger.get("s_shopping", 0),
+               charger.get("s_essen", 0)]
+    pts = 0.6 * max(profile) + 0.4 * (sum(profile) / 3)
+    if charger.get("raststaette"):
+        pts += 10
+    return round(min(100.0, pts))
+
+
 def score(charger):
     """Gesamtbewertung 0-100 aus Leistung, Umweg, Ladepunkten und Umfeld.
 
@@ -694,11 +709,8 @@ def score(charger):
     detour = max(0.0, 1.0 - charger["detour_min"] / 20.0)
     stalls = min(1.0, (charger.get("stalls") or 2) / 12.0)
 
-    profile = [charger.get("s_familie", 0), charger.get("s_shopping", 0),
-               charger.get("s_essen", 0)]
-    umfeld = (0.6 * max(profile) + 0.4 * (sum(profile) / 3)) / 100.0
-    if charger.get("raststaette"):
-        umfeld = min(1.0, umfeld + 0.10)   # WC + kurze Wege garantiert
+    umfeld = (charger.get("s_umfeld") if charger.get("s_umfeld") is not None
+              else score_umfeld(charger)) / 100.0
 
     total = 100 * (0.22 * power + 0.32 * detour + 0.36 * umfeld + 0.10 * stalls)
     return round(total)
@@ -814,12 +826,23 @@ def attach_pois(chargers, pois):
                 pp = [round(v, 6) for v in p["pos"]]
                 if any(haversine(pp, pg) < 80 for pg in playgrounds):
                     p["kids"] = True
+        # Pro Kategorie nur die drei naechsten behalten: In Staedten stehen
+        # Dutzende Spielplaetze im Kilometerumkreis — der vierte traegt
+        # nichts mehr bei und verdraengt nur Essen und Laeden aus der Liste.
+        c["pois"].sort(key=lambda p: p["dist_m"])
+        je_kat = {}
+        gedeckelt = []
+        for p_ in c["pois"]:
+            je_kat[p_["cat"]] = je_kat.get(p_["cat"], 0) + 1
+            if je_kat[p_["cat"]] <= 3:
+                gedeckelt.append(p_)
         gewicht = {k: v[2] for k, v in rules.CATEGORIES.items()}
-        c["pois"].sort(key=lambda p: (-gewicht.get(p["cat"], 0), p["dist_m"]))
-        c["pois"] = c["pois"][:18]
+        gedeckelt.sort(key=lambda p: (-gewicht.get(p["cat"], 0), p["dist_m"]))
+        c["pois"] = gedeckelt[:18]
         c["s_familie"] = score_familie(c["pois"])
         c["s_shopping"] = score_shopping(c["pois"])
         c["s_essen"] = score_essen(c["pois"])
+        c["s_umfeld"] = score_umfeld(c)
 
 
 def main():

@@ -167,8 +167,18 @@
                   rest + " weitere</button>" : "");
   }
 
+  function umfeldClass(v) {
+    if (v >= 62) { return "umf-top"; }
+    if (v >= 42) { return "umf-mid"; }
+    return "umf-low";
+  }
+
   function badges(c) {
     var out = [];
+    var u = c.s_umfeld || 0;
+    out.push('<span class="tag tag-umfeld ' + umfeldClass(u) +
+      '" title="Attraktivität der Umgebung: ' + u + ' von 100 — ' +
+      'aus Familien-, Shopping- und Essens-Angebot in Laufweite">🌳 ' + u + "</span>");
     if (c.raststaette) { out.push('<span class="tag tag-rast">Raststätte</span>'); }
     if (c.s_familie >= 60) { out.push('<span class="tag">🧒 ' + c.s_familie + "</span>"); }
     if (c.s_shopping >= 60) { out.push('<span class="tag">🛍️ ' + c.s_shopping + "</span>"); }

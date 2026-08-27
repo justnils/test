@@ -815,3 +815,37 @@ body.mode-fahrt .hero-primary { font-size: 1.2rem; }
   font-size: 17px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
 }
+
+/* Umgebungs-Badge: gleiche Farbstufen wie die Kartenpins */
+.tag-umfeld { font-weight: 700; }
+.tag-umfeld.umf-top { color: var(--accent); border-color: #2b6b42; }
+.tag-umfeld.umf-mid { color: var(--warn); border-color: #6b5a1e; }
+.tag-umfeld.umf-low { color: var(--fg-dim); }
+
+/* Kartenlegende unten links */
+.map-legende {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 900;
+  background: rgba(11, 18, 32, .85);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 11px;
+  color: var(--fg-dim);
+  pointer-events: none;
+}
+
+.map-legende .lg {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin: 0 3px 0 7px;
+  vertical-align: -1px;
+}
+
+.map-legende .lg-top { background: var(--accent); }
+.map-legende .lg-mid { background: var(--warn); }
+.map-legende .lg-low { background: #94a3b8; }
